@@ -4,7 +4,8 @@
     "allow": [
       "Bash(pnpm add:*)",
       "Bash(pnpm run build:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

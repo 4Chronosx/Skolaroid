@@ -6,10 +6,39 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
+const MAP_STYLES = [
+  {
+    id: 'streets',
+    label: 'Streets',
+    url: 'mapbox://styles/mapbox/streets-v12',
+  },
+  {
+    id: 'satellite',
+    label: 'Satellite',
+    url: 'mapbox://styles/mapbox/satellite-streets-v12',
+  },
+  {
+    id: 'outdoors',
+    label: 'Outdoors',
+    url: 'mapbox://styles/mapbox/outdoors-v12',
+  },
+  { id: 'light', label: 'Light', url: 'mapbox://styles/mapbox/light-v11' },
+  { id: 'dark', label: 'Dark', url: 'mapbox://styles/mapbox/dark-v11' },
+] as const;
+
 export function MapComponent() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [activeStyle, setActiveStyle] = useState<string>(MAP_STYLES[0].id);
+
+  const handleStyleChange = (styleId: string) => {
+    const style = MAP_STYLES.find((s) => s.id === styleId);
+    if (!style || !mapRef.current) return;
+
+    setActiveStyle(styleId);
+    mapRef.current.setStyle(style.url);
+  };
 
   useEffect(() => {
     if (!MAPBOX_TOKEN) {
@@ -30,7 +59,7 @@ export function MapComponent() {
 
         const map = new mapboxgl.Map({
           container: mapContainerRef.current,
-          style: 'mapbox://styles/mapbox/streets-v12',
+          style: MAP_STYLES[0].url,
           center: [-74.5, 40],
           zoom: 9,
           pitch: 60,
@@ -40,13 +69,9 @@ export function MapComponent() {
 
         mapRef.current = map;
 
-        // Add navigation controls
         map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-        // Add fullscreen control
         map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
-        // Clean up on unmount
         return () => {
           map.remove();
           mapRef.current = null;
@@ -78,6 +103,23 @@ export function MapComponent() {
   return (
     <div className="relative h-screen w-full">
       <div ref={mapContainerRef} className="h-full w-full" />
+
+      {/* Style Switcher */}
+      <div className="absolute bottom-6 left-4 flex gap-1 rounded-lg bg-white p-1 shadow-lg">
+        {MAP_STYLES.map((style) => (
+          <button
+            key={style.id}
+            onClick={() => handleStyleChange(style.id)}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              activeStyle === style.id
+                ? 'bg-black text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {style.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

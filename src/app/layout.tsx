@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import { Geist } from 'next/font/google';
+import { Inter, Grape_Nuts } from 'next/font/google';
 import { QueryProvider } from '@/providers/query-provider';
-import { PublicHeader } from '@/components/public-header';
 import '@/styles/globals.css';
 
 const defaultUrl = process.env.VERCEL_URL
@@ -10,14 +9,22 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: 'Next.js and Supabase Starter Kit',
-  description: 'The fastest way to build apps with Next.js and Supabase',
+  title: 'Skolaroid - Turn Your Memories Into Skolaroids',
+  description:
+    'A living memory platform for University of the Philippines Cebu. Preserve, celebrate, and explore achievements and shared experiences of every batch.',
 };
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const inter = Inter({
+  variable: '--font-inter',
   display: 'swap',
   subsets: ['latin'],
+});
+
+const grapeNuts = Grape_Nuts({
+  variable: '--font-dancing',
+  display: 'swap',
+  subsets: ['latin'],
+  weight: '400',
 });
 
 export default function RootLayout({
@@ -27,11 +34,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
-        <QueryProvider>
-          <PublicHeader />
-          {children}
-        </QueryProvider>
+      <body className={`${inter.className} ${grapeNuts.variable} antialiased`}>
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

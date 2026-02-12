@@ -2,38 +2,39 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogoutButton } from './logout-button';
+import { Button } from '@/components/ui/button';
+import { ClientNav } from './client-nav';
 
 export function Header() {
   const pathname = usePathname();
-
-  const navItems = [
-    { href: '/protected', label: 'Home' },
-    { href: '/map', label: 'Map' },
-  ];
+  const isHomePage = pathname === '/';
 
   return (
-    <nav className="flex h-16 w-full justify-center border-b border-b-foreground/10">
-      <div className="flex w-full max-w-5xl items-center justify-between p-3 px-5 text-sm">
-        <div className="flex items-center gap-8 font-semibold">
-          <span>Skolaroid</span>
-          <div className="flex gap-6">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`transition-colors ${
-                  pathname === item.href
-                    ? 'text-foreground'
-                    : 'text-foreground/60 hover:text-foreground'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
+    <nav className="flex h-16 w-full justify-center bg-white/80 backdrop-blur-sm dark:bg-gray-900/80">
+      <div className="flex w-full items-center justify-between p-3 px-5 text-sm">
+        {!isHomePage && (
+          <div className="flex items-center gap-8 font-semibold">
+            <Link href="/" className="text-lg hover:text-foreground/80">
+              Skolaroid
+            </Link>
+            <ClientNav />
           </div>
+        )}
+
+        {isHomePage && <div />}
+
+        {/* Auth Buttons - Navigate to home for auth */}
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" asChild className="text-xs">
+            <Link href="/">Log In</Link>
+          </Button>
+          <Button
+            asChild
+            className="bg-skolaroid-blue text-xs hover:bg-skolaroid-blue/90"
+          >
+            <Link href="/">Sign Up</Link>
+          </Button>
         </div>
-        <LogoutButton />
       </div>
     </nav>
   );
