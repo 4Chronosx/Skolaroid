@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import { QueryProvider } from '@/providers/query-provider';
+import { PublicHeader } from '@/components/public-header';
 import '@/styles/globals.css';
 
 const defaultUrl = process.env.VERCEL_URL
@@ -27,7 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.className} antialiased`}>
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <PublicHeader />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

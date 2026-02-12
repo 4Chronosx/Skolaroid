@@ -1,5 +1,12 @@
 {
+  "includeCoAuthoredBy": false,
   "permissions": {
-    "allow": ["Bash(npx eslint:*)"]
+    "allow": [
+      "Bash(pnpm add:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(npx eslint:*)"
+    ],
+    "deny": [],
+    "ask": []
   }
 }
