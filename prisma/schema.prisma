@@ -13,10 +13,94 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Status {
+  STUDENT
+  ALUMNI
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id        String @id @db.Uuid // reference to auth.id
+  studentId String @unique
+  email     String @unique
+  firstName String 
+  lastName  String
+  programBatchId String
+  programBatch ProgramBatch @relation(fields:[programBatchId], references: [id])
+  memories Memory[]
+  status    Status  
+  role      UserRole 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Program {
+  id        String @id @default(uuid())
+  name      String 
+  programBatches ProgramBatch[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Batch {
+  id        String @id @default(uuid())
+  year      Int
+  programBatches ProgramBatch[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProgramBatch {
+  id      String @id @default(uuid())  
+  programId String
+  program Program @relation(fields:[programId], references: [id])
+  batchId String
+  batch Batch @relation(fields: [batchId], references: [id])
+  students User[]
+  memories Memory[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([programId, batchId])
+}
+
+model Memory {
+  id String @id @db.Uuid @default(uuid())
+  title String
+  description String?
+  mediaURL String?
+  uploadDate DateTime @default(now())
+  upVotes Int @default(0)
+  tags Tags[] @relation("MemoryTags")
+  coordinate Json?
+  creatorId String? @db.Uuid
+  creator User? @relation(fields:[creatorId], references: [id], onDelete: Cascade)
+  programBatchId String
+  programBatch ProgramBatch @relation(fields:[programBatchId], references: [id], onDelete: Restrict)
+  locationId String @db.Uuid
+  location Location @relation(fields:[locationId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Location {
+  id String @id @db.Uuid @default(uuid())
+  buildingName String
+  latitude Float
+  longitude Float
+  memories Memory[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tags {
+  id String @id @db.Uuid @default(uuid())
+  name String
+  memories Memory[] @relation("MemoryTags")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
