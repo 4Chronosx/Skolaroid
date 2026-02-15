@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { BatchCard } from '@/components/batch-card';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { LoginForm } from '@/components/login-form';
 import { SignUpForm } from '@/components/sign-up-form';
 
@@ -112,11 +113,18 @@ export default function Home() {
         >
           Sign Up
         </button>
+        <Link
+          href="/onboarding"
+          className="px-3 py-2 text-xs text-gray-600 underline transition hover:text-gray-900"
+        >
+          Skip
+        </Link>
       </div>
 
       {/* Login Modal */}
       <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
         <DialogContent className="sm:max-w-[425px]">
+          <DialogTitle className="sr-only">Login</DialogTitle>
           <LoginForm
             onSwitchToSignUp={() => {
               setLoginOpen(false);
@@ -129,6 +137,7 @@ export default function Home() {
       {/* Sign Up Modal */}
       <Dialog open={signUpOpen} onOpenChange={setSignUpOpen}>
         <DialogContent className="sm:max-w-[425px]">
+          <DialogTitle className="sr-only">Sign Up</DialogTitle>
           <SignUpForm
             onSwitchToLogin={() => {
               setSignUpOpen(false);
