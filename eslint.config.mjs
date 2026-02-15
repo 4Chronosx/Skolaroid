@@ -11,8 +11,8 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  // Ignore Next.js default build artifacts
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+  // Ignore Next.js default build artifacts and generated Prisma client
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'src/generated/**', 'generated/**']),
 
   // Extend Next.js ESLint configs
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
