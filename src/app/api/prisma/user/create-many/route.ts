@@ -12,11 +12,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate required fields for each user
+    for (const user of users) {
+      if (
+        !user.email ||
+        !user.studentId ||
+        !user.firstName ||
+        !user.lastName ||
+        !user.programBatchId
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Each user must have email, studentId, firstName, lastName, and programBatchId',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const result = await prisma.user.createMany({
-      data: users.map((user: { email: string; name?: string }) => ({
-        email: user.email,
-        name: user.name || null,
-      })),
+      data: users.map(
+        (user: {
+          email: string;
+          studentId: string;
+          firstName: string;
+          lastName: string;
+          programBatchId: string;
+        }) => ({
+          email: user.email,
+          studentId: user.studentId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          programBatchId: user.programBatchId,
+        })
+      ),
       skipDuplicates: true,
     });
 

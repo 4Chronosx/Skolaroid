@@ -13,10 +13,210 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Status {
+  STUDENT
+  ALUMNI
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum MemoryVisibility {
+  PUBLIC        // Visible to everyone
+  PROGRAM_ONLY  // Visible to all batches in the program
+  BATCH_ONLY    // Visible only to specific batch
+  PRIVATE       // Visible only to creator
+}
+
+// ============================================================================
+// USER & AUTH
+// ============================================================================
+
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id             String   @id @default(uuid()) @db.Uuid // reference to auth.id
+  studentId      String   @unique @db.VarChar(50)
+  email          String   @unique @db.VarChar(255)
+  firstName      String   @db.VarChar(100)
+  lastName       String   @db.VarChar(100)
+  programBatchId String   @db.Uuid
+  programBatch   ProgramBatch @relation(fields: [programBatchId], references: [id], onDelete: Restrict)
+  
+  // Relations
+  memories       Memory[]
+  votes          MemoryVote[]
+  
+  // Status & Role
+  status         Status   @default(STUDENT)
+  role           UserRole @default(USER)
+  
+  // Soft delete
+  deletedAt      DateTime?
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([email])
+  @@index([studentId])
+  @@index([programBatchId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([firstName, lastName]) // For name searches
+}
+
+// ============================================================================
+// PROGRAM & BATCH STRUCTURE
+// ============================================================================
+
+model Program {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @db.VarChar(200)
+  description    String?  @db.Text
+  programBatches ProgramBatch[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([name])
+}
+
+model Batch {
+  id             String   @id @default(uuid()) @db.Uuid
+  year           Int      @unique @db.SmallInt
+  programBatches ProgramBatch[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([year])
+}
+
+model ProgramBatch {
+  id        String   @id @default(uuid()) @db.Uuid
+  programId String   @db.Uuid
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  batchId   String   @db.Uuid
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  // Relations
+  students  User[]
+  memories  Memory[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([programId, batchId])
+  @@index([programId])
+  @@index([batchId])
+}
+
+// ============================================================================
+// MEMORIES
+// ============================================================================
+
+model Memory {
+  id             String           @id @default(uuid()) @db.Uuid
+  title          String           @db.VarChar(255)
+  description    String?          @db.Text
+  mediaURL       String?          @db.VarChar(2048)
+  uploadDate     DateTime         @default(now())
+  visibility     MemoryVisibility @default(PUBLIC)
+  
+  // Relations
+  tags           Tag[]            @relation("MemoryTags")
+  votes          MemoryVote[]
+  
+  // Creator (nullable to preserve memories if user deleted)
+  creatorId      String?          @db.Uuid
+  creator        User?            @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  
+  // Program & Batch
+  programBatchId String           @db.Uuid
+  programBatch   ProgramBatch     @relation(fields: [programBatchId], references: [id], onDelete: Restrict)
+  
+  // Location
+  locationId     String           @db.Uuid
+  location       Location         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  
+  // Soft delete & archiving
+  isArchived     Boolean          @default(false)
+  deletedAt      DateTime?
+  
+  // Timestamps
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([creatorId])
+  @@index([programBatchId])
+  @@index([locationId])
+  @@index([uploadDate])
+  @@index([visibility])
+  @@index([isArchived])
+  @@index([deletedAt])
+  @@index([createdAt]) // For chronological queries
+}
+
+// ============================================================================
+// MEMORY VOTING SYSTEM
+// ============================================================================
+
+model MemoryVote {
+  id        String   @id @default(uuid()) @db.Uuid
+  memoryId  String   @db.Uuid
+  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([memoryId, userId]) // One vote per user per memory
+  @@index([memoryId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// LOCATION
+// ============================================================================
+
+model Location {
+  id           String   @id @default(uuid()) @db.Uuid
+  buildingName String   @db.VarChar(200)
+  description  String?  @db.Text
+  latitude     Float    @db.DoublePrecision
+  longitude    Float    @db.DoublePrecision
+  
+  // Relations
+  memories     Memory[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([latitude, longitude]) // Prevent duplicate locations
+  @@index([buildingName])
+}
+
+// ============================================================================
+// TAGS
+// ============================================================================
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(50)
+  slug      String   @unique @db.VarChar(50) // URL-friendly version
+  
+  // Relations
+  memories  Memory[] @relation("MemoryTags")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([slug])
 }
