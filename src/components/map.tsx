@@ -2,6 +2,9 @@
 
 import mapboxgl from 'mapbox-gl';
 import { useRef, useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { AddMemoryModal } from './add-memory-modal';
+import { ExpandableToolbar } from './expandable-toolbar';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -10,6 +13,7 @@ export function MapComponent() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [addMemoryOpen, setAddMemoryOpen] = useState(false);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN) {
@@ -65,8 +69,8 @@ export function MapComponent() {
 
         mapRef.current = map;
 
-        map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+        map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+        map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
 
         return () => {
           map.remove();
@@ -99,6 +103,25 @@ export function MapComponent() {
   return (
     <div className="relative h-full w-full">
       <div ref={mapContainerRef} className="h-full w-full" />
+
+      {/* Add Memory Button - Bottom Right */}
+      <button
+        onClick={() => setAddMemoryOpen(true)}
+        className="absolute bottom-6 right-6 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-skolaroid-blue text-white shadow-lg transition-all hover:bg-skolaroid-blue/90 hover:shadow-xl active:scale-95"
+        aria-label="Add memory"
+      >
+        <Plus size={24} />
+      </button>
+
+      {/* Expandable Toolbar - Top Right */}
+      <ExpandableToolbar
+        onPrimaryClick={() => console.log('Primary action clicked')}
+        onSettingsClick={() => console.log('Settings clicked')}
+        onShareClick={() => console.log('Share clicked')}
+      />
+
+      {/* Add Memory Modal */}
+      <AddMemoryModal open={addMemoryOpen} onOpenChange={setAddMemoryOpen} />
     </div>
   );
 }
