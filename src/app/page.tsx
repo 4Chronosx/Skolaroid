@@ -228,13 +228,18 @@ export default function Home() {
         </div>
 
         {/* Color Strip - Right Border */}
-        <div className="flex h-screen w-2.5 flex-shrink-0 flex-col">
+        <button
+          onClick={() => setDrawerOpen(!drawerOpen)}
+          onMouseEnter={() => setDrawerOpen(true)}
+          className="flex h-screen w-2.5 flex-shrink-0 cursor-pointer flex-col transition-all hover:w-3"
+          aria-label="Expand drawer"
+        >
           <div className="flex-1 bg-[#8E1537]" />
           <div className="flex-1 bg-[#FFB81D]" />
           <div className="flex-1 bg-[#005740]" />
           <div className="flex-1 bg-[#7BC122]" />
           <div className="flex-1 bg-[#208CD4]" />
-        </div>
+        </button>
       </div>
 
       {/* Overlay - Click to close drawer */}

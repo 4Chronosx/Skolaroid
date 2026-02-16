@@ -2,14 +2,24 @@
 
 import mapboxgl from 'mapbox-gl';
 import { useRef, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Plus } from 'lucide-react';
+import { AddMemoryModal } from './add-memory-modal';
+import { GroupModal } from './group-modal';
+import { BatchesModal } from './batches-modal';
+import { ExpandableToolbar } from './expandable-toolbar';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export function MapComponent() {
+  const router = useRouter();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [addMemoryOpen, setAddMemoryOpen] = useState(false);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [batchesModalOpen, setBatchesModalOpen] = useState(false);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN) {
@@ -65,8 +75,8 @@ export function MapComponent() {
 
         mapRef.current = map;
 
-        map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+        map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+        map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
 
         return () => {
           map.remove();
@@ -99,6 +109,41 @@ export function MapComponent() {
   return (
     <div className="relative h-full w-full">
       <div ref={mapContainerRef} className="h-full w-full" />
+
+      {/* Add Memory Button - Bottom Right */}
+      <div className="absolute bottom-6 right-6 z-10">
+        <div className="group flex items-center gap-0 rounded-full bg-white p-2 shadow-lg transition-all duration-300 hover:gap-3">
+          <button
+            onClick={() => setAddMemoryOpen(true)}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-skolaroid-blue text-white shadow-lg transition-all hover:bg-skolaroid-blue/90 hover:shadow-xl active:scale-95"
+            aria-label="Add memory"
+          >
+            <Plus size={20} />
+          </button>
+          <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-medium text-gray-700 opacity-0 transition-all duration-300 group-hover:max-w-40 group-hover:pr-3 group-hover:opacity-100">
+            Add Memory
+          </span>
+        </div>
+      </div>
+
+      {/* Expandable Toolbar - Top Right */}
+      <ExpandableToolbar
+        onPrimaryClick={() => setGroupModalOpen(true)}
+        onBatchesClick={() => setBatchesModalOpen(true)}
+        onConfigureClick={() => router.push('/admin')}
+      />
+
+      {/* Group Modal */}
+      <GroupModal open={groupModalOpen} onOpenChange={setGroupModalOpen} />
+
+      {/* Batches Modal */}
+      <BatchesModal
+        open={batchesModalOpen}
+        onOpenChange={setBatchesModalOpen}
+      />
+
+      {/* Add Memory Modal */}
+      <AddMemoryModal open={addMemoryOpen} onOpenChange={setAddMemoryOpen} />
     </div>
   );
 }
