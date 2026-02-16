@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
 type Tab = 'upload' | 'caption' | 'privacy';
@@ -49,7 +49,7 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
         {/* Tabs Sidebar */}
         <div className="flex w-48 flex-col border-r bg-gray-50">
           <div className="flex-1 p-6">
-            <h2 className="sr-only">Add Memory</h2>
+            <DialogTitle className="sr-only">Add Memory</DialogTitle>
             <div className="space-y-4">
               {tabs.map((tab) => (
                 <button

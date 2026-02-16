@@ -1,18 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronUp, ChevronDown, Settings, Share2, Bell } from 'lucide-react';
+import {
+  ChevronUp,
+  ChevronDown,
+  Layers,
+  SlidersHorizontal,
+  Users,
+} from 'lucide-react';
 
 interface ExpandableToolbarProps {
   onPrimaryClick?: () => void;
-  onSettingsClick?: () => void;
-  onShareClick?: () => void;
+  onBatchesClick?: () => void;
+  onConfigureClick?: () => void;
 }
 
 export function ExpandableToolbar({
   onPrimaryClick,
-  onSettingsClick,
-  onShareClick,
+  onBatchesClick,
+  onConfigureClick,
 }: ExpandableToolbarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -24,27 +30,27 @@ export function ExpandableToolbar({
         <button
           onClick={onPrimaryClick}
           className="flex h-12 w-12 items-center justify-center rounded-full bg-skolaroid-blue text-white shadow-lg transition-all hover:bg-skolaroid-blue/90 hover:shadow-xl active:scale-95"
-          aria-label="Primary action"
+          aria-label="Group"
         >
-          <Bell size={20} />
+          <Users size={20} />
         </button>
 
         {/* Expanded Buttons */}
         {isExpanded && (
           <>
             <button
-              onClick={onSettingsClick}
+              onClick={onBatchesClick}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-skolaroid-blue text-white shadow-lg transition-all hover:bg-skolaroid-blue/90 hover:shadow-xl active:scale-95"
-              aria-label="Settings"
+              aria-label="Batches"
             >
-              <Settings size={20} />
+              <Layers size={20} />
             </button>
             <button
-              onClick={onShareClick}
+              onClick={onConfigureClick}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-skolaroid-blue text-white shadow-lg transition-all hover:bg-skolaroid-blue/90 hover:shadow-xl active:scale-95"
-              aria-label="Share"
+              aria-label="Configure"
             >
-              <Share2 size={20} />
+              <SlidersHorizontal size={20} />
             </button>
           </>
         )}
