@@ -6,6 +6,8 @@ import { BatchCard } from '@/components/batch-card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { LoginForm } from '@/components/login-form';
 import { SignUpForm } from '@/components/sign-up-form';
+import { useUserAuth } from '@/hooks/useUserAuth';
+import { AccountMenu } from '@/components/account-menu';
 
 const batches = [
   {
@@ -58,6 +60,7 @@ const polaroids = [
 ];
 
 export default function Home() {
+  const { isAuthenticated, loading } = useUserAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
@@ -101,24 +104,30 @@ export default function Home() {
     <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Auth Buttons - Fixed top right */}
       <div className="fixed right-5 top-3 z-50 flex items-center gap-3">
-        <button
-          onClick={() => setLoginOpen(true)}
-          className="px-3 py-2 text-xs transition hover:opacity-70"
-        >
-          Log In
-        </button>
-        <button
-          onClick={() => setSignUpOpen(true)}
-          className="rounded-md bg-skolaroid-blue px-4 py-2 text-xs text-white transition hover:bg-blue-700"
-        >
-          Sign Up
-        </button>
-        <Link
-          href="/onboarding"
-          className="px-3 py-2 text-xs text-gray-600 underline transition hover:text-gray-900"
-        >
-          Skip
-        </Link>
+        {!loading && isAuthenticated ? (
+          <AccountMenu />
+        ) : (
+          <>
+            <button
+              onClick={() => setLoginOpen(true)}
+              className="px-3 py-2 text-xs transition hover:opacity-70"
+            >
+              Log In
+            </button>
+            <button
+              onClick={() => setSignUpOpen(true)}
+              className="rounded-md bg-skolaroid-blue px-4 py-2 text-xs text-white transition hover:bg-blue-700"
+            >
+              Sign Up
+            </button>
+            <Link
+              href="/onboarding"
+              className="px-3 py-2 text-xs text-gray-600 underline transition hover:text-gray-900"
+            >
+              Skip
+            </Link>
+          </>
+        )}
       </div>
 
       {/* Login Modal */}
@@ -191,10 +200,18 @@ export default function Home() {
                     'ml-[120px]',
                   ];
                   return (
-                    <div
+                    <button
                       key={polaroid.id}
-                      className={`relative transform transition-all hover:z-50 hover:rotate-0 hover:scale-110 ${rotations[index]} ${offsets[index]}`}
+                      onClick={() => {
+                        if (isAuthenticated) {
+                          window.location.href = '/map';
+                        } else {
+                          setLoginOpen(true);
+                        }
+                      }}
+                      className={`relative transform cursor-pointer transition-all hover:z-50 hover:rotate-0 hover:scale-110 ${rotations[index]} ${offsets[index]}`}
                       style={{ zIndex: index }}
+                      aria-label="Open map"
                     >
                       {/* Polaroid Frame */}
                       <div
@@ -202,7 +219,7 @@ export default function Home() {
                       >
                         <span className="text-sm text-gray-400">Photo</span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

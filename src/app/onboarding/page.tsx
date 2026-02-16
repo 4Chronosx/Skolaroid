@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
+import { useUserAuth } from '@/hooks/useUserAuth';
+import { Header } from '@/components/header';
 import { BatchSelectorModal } from '@/components/onboarding/batch-selector-modal';
 import { CourseSelectorModal } from '@/components/onboarding/course-selector-modal';
 
@@ -13,6 +16,8 @@ interface OnboardingStep {
 }
 
 export default function OnboardingPage() {
+  const router = useRouter();
+  const { markOnboardingComplete } = useUserAuth();
   const [steps, setSteps] = useState<OnboardingStep[]>([
     {
       id: 'verify',
@@ -70,7 +75,8 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex h-screen w-screen items-center justify-center overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col px-6 py-8">
+      <Header />
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col px-6 py-8 pt-20">
         {/* Header */}
         <div className="flex flex-shrink-0 items-start justify-between">
           <div>
@@ -146,11 +152,18 @@ export default function OnboardingPage() {
               More info ↗
             </a>
             <div className="flex gap-2">
-              <button className="rounded-lg bg-gray-100 px-4 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200">
+              <button
+                onClick={() => router.push('/')}
+                className="rounded-lg bg-gray-100 px-4 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200"
+              >
                 Back
               </button>
               <button
                 disabled={!allCompleted}
+                onClick={() => {
+                  markOnboardingComplete();
+                  router.push('/');
+                }}
                 className={`rounded-lg px-4 py-1.5 text-xs font-medium text-white transition ${
                   allCompleted
                     ? 'cursor-pointer bg-skolaroid-blue hover:bg-blue-700'
