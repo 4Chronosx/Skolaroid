@@ -11,15 +11,21 @@ export function Header() {
 
   return (
     <nav className="fixed left-0 right-0 top-0 z-50 flex h-16 w-full justify-center bg-white/80 backdrop-blur-sm dark:bg-gray-900/80">
-      <div className="flex w-full items-center justify-between p-3 px-5 text-sm">
-        <div className="flex items-center gap-8 font-semibold">
+      <div className="relative flex w-full items-center p-3 px-5 text-sm">
+        {/* Logo - Left */}
+        <div className="font-semibold">
           <Link href="/" className="text-lg hover:text-foreground/80">
-            Skolaroid
+            skolaroid
           </Link>
+        </div>
+
+        {/* Nav - Centered */}
+        <div className="absolute left-1/2 -translate-x-1/2 font-semibold">
           <ClientNav />
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Auth - Right */}
+        <div className="ml-auto flex items-center gap-3">
           {!loading && isAuthenticated ? (
             <AccountMenu />
           ) : (

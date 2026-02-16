@@ -7,8 +7,9 @@ export function ClientNav() {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/', label: 'Home' },
+    { href: '/gallery', label: 'Gallery' },
     { href: '/map', label: 'Map' },
+    { href: '/about', label: 'About' },
   ];
 
   return (
