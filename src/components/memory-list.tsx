@@ -3,7 +3,7 @@
 // TODO: Integrate into map sidebar when landmark click handlers are implemented.
 
 import { useMemoriesByLocation } from '@/lib/hooks/useMemoriesByLocation';
-import { MemoryCard, type MemoryCardMemory } from '@/components/memory-card';
+import { MemoryCard } from '@/components/memory-card';
 
 interface MemoryListProps {
   locationId: string | null;
@@ -11,7 +11,7 @@ interface MemoryListProps {
 }
 
 export function MemoryList({ locationId, locationName }: MemoryListProps) {
-  const { data, isPending, isError, error } = useMemoriesByLocation(locationId);
+  const { data, isPending, isError } = useMemoriesByLocation(locationId);
 
   if (!locationId) {
     return (
@@ -32,7 +32,7 @@ export function MemoryList({ locationId, locationName }: MemoryListProps) {
   if (isError) {
     return (
       <div className="p-8 text-center text-sm text-red-500">
-        {error?.message ?? 'Failed to load memories'}
+        Failed to load memories. Please try again.
       </div>
     );
   }
@@ -49,8 +49,8 @@ export function MemoryList({ locationId, locationName }: MemoryListProps) {
   }
 
   return (
-    <div className="grid gap-4 p-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-      {memories.map((memory: MemoryCardMemory) => (
+    <div className="grid gap-4 p-4 md:grid-cols-2 lg:grid-cols-3">
+      {memories.map((memory) => (
         <MemoryCard key={memory.id} memory={memory} />
       ))}
     </div>

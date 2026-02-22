@@ -13,14 +13,21 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import type { MemoryVisibility } from '@/lib/schemas';
+
+const VISIBILITY_LABELS: Record<MemoryVisibility, string> = {
+  PUBLIC: 'Public',
+  PROGRAM_ONLY: 'Program',
+  BATCH_ONLY: 'Batch',
+  PRIVATE: 'Private',
+};
 
 export interface MemoryCardMemory {
   id: string;
   title: string;
   description?: string | null;
   mediaURL?: string | null;
-  visibility: string;
-  createdAt: string;
+  visibility: MemoryVisibility;
   tags?: { id: string; name: string }[];
   location?: { buildingName: string };
   _count?: { votes: number };
@@ -47,7 +54,7 @@ export function MemoryCard({ memory }: MemoryCardProps) {
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg">{memory.title}</CardTitle>
           <Badge variant="secondary" className="shrink-0">
-            {memory.visibility}
+            {VISIBILITY_LABELS[memory.visibility]}
           </Badge>
         </div>
         {memory.location && (
