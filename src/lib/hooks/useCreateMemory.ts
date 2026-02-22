@@ -1,27 +1,31 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { CreateMemoryInput } from '@/lib/schemas';
-
-interface CreateMemoryPayload extends CreateMemoryInput {
-  programBatchId: string;
-}
+import type { CreateMemoryServerInput } from '@/lib/schemas';
 
 export function useCreateMemory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateMemoryPayload) => {
+    retry: 1,
+    mutationFn: async (data: CreateMemoryServerInput) => {
       const res = await fetch('/api/prisma/memory/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error ?? 'Failed to create memory');
+        const errorBody = await res.json().catch(() => ({}));
+        throw new Error(
+          (errorBody as { message?: string }).message ??
+            'Failed to create memory'
+        );
       }
-      return res.json();
+      return res.json() as Promise<{
+        success: boolean;
+        message: string;
+        data: Record<string, unknown>;
+      }>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['memories'] });
