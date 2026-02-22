@@ -56,12 +56,19 @@ export function SignUpForm({
   };
 
   return (
-    <div className={cn('flex flex-col gap-6', className)} {...props}>
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold">Get Started</h2>
-      </div>
+    // D1: p-8 = 32px internal padding
+    <div
+      className={cn('flex flex-col gap-4 rounded-2xl p-6', className)}
+      {...props}
+    >
+      {/* D2: h1 + font-bold for clear visual hierarchy */}
+      <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+        Get Started
+      </h1>
       <form onSubmit={handleSignUp}>
-        <div className="flex flex-col gap-4">
+        {/* D1: gap-6 = 24px between field groups */}
+        <div className="flex flex-col gap-6">
+          {/* D2: labelClassName font-semibold; D3: h-10 + border-gray-300 standardized across all 4 inputs */}
           <FormInput
             label="Full Name"
             type="text"
@@ -69,6 +76,8 @@ export function SignUpForm({
             required
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
           />
           <FormInput
             label="Alumni email address"
@@ -77,6 +86,8 @@ export function SignUpForm({
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
           />
           <FormInput
             label="Student ID"
@@ -85,6 +96,8 @@ export function SignUpForm({
             required
             value={studentId}
             onChange={(e) => setStudentId(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
           />
           <FormInput
             label="Create new password"
@@ -93,9 +106,12 @@ export function SignUpForm({
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
           />
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
+          {/* D5: gap-3 between rows; py-1 on each row for mobile tap targets */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 py-1">
               <Checkbox
                 id="signup-accept-terms"
                 checked={acceptTerms}
@@ -103,18 +119,18 @@ export function SignUpForm({
               />
               <Label
                 htmlFor="signup-accept-terms"
-                className="cursor-pointer text-sm font-normal"
+                className="cursor-pointer text-sm font-normal text-gray-600"
               >
                 By registering, I agree to accept the{' '}
                 <Link
                   href="/terms"
-                  className="text-primary underline-offset-4 hover:underline"
+                  className="font-medium text-skolaroid-blue underline-offset-4 hover:underline"
                 >
                   Terms &amp; Service
                 </Link>
               </Label>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 py-1">
               <Checkbox
                 id="signup-remember-device"
                 checked={rememberDevice}
@@ -124,19 +140,21 @@ export function SignUpForm({
               />
               <Label
                 htmlFor="signup-remember-device"
-                className="cursor-pointer text-sm font-normal"
+                className="cursor-pointer text-sm font-normal text-gray-600"
               >
                 Remember this device
               </Label>
             </div>
           </div>
           <FormError message={error} />
-          <div className="flex items-center gap-4">
+          {/* D4: column layout — full-width primary button, secondary link centered below */}
+          <div className="flex flex-col items-center gap-3 pt-2">
             <FormButton
               type="submit"
               isLoading={isLoading}
               loadingText="Creating account..."
               disabled={!acceptTerms}
+              className="w-full"
             >
               Register
             </FormButton>
@@ -144,14 +162,14 @@ export function SignUpForm({
               <button
                 type="button"
                 onClick={onSwitchToLogin}
-                className="text-sm underline-offset-4 hover:underline"
+                className="text-sm text-gray-600 hover:text-gray-900"
               >
                 Log to existing
               </button>
             ) : (
               <Link
                 href="/auth/login"
-                className="text-sm underline-offset-4 hover:underline"
+                className="text-sm text-gray-600 hover:text-gray-900"
               >
                 Log to existing
               </Link>

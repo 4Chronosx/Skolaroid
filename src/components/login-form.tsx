@@ -48,12 +48,19 @@ export function LoginForm({
   };
 
   return (
-    <div className={cn('flex flex-col gap-6', className)} {...props}>
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold">Welcome to Skolaroid</h2>
-      </div>
+    // D1: p-8 = 32px internal padding
+    <div
+      className={cn('flex flex-col gap-6 rounded-2xl p-6', className)}
+      {...props}
+    >
+      {/* D2: h1 + font-bold for clear visual hierarchy */}
+      <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+        Welcome to Skolaroid
+      </h1>
       <form onSubmit={handleLogin}>
-        <div className="flex flex-col gap-4">
+        {/* D1: gap-6 = 24px between field groups */}
+        <div className="flex flex-col gap-6">
+          {/* D2: labelClassName font-semibold; D3: h-10 + border-gray-300 standardized */}
           <FormInput
             label="Alumni email address"
             type="email"
@@ -61,6 +68,8 @@ export function LoginForm({
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
           />
           <FormInput
             label="Password"
@@ -69,9 +78,12 @@ export function LoginForm({
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
           />
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
+          {/* D5: gap-3 between rows; py-1 on each row for mobile tap targets */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 py-1">
               <Checkbox
                 id="login-accept-terms"
                 checked={acceptTerms}
@@ -79,18 +91,18 @@ export function LoginForm({
               />
               <Label
                 htmlFor="login-accept-terms"
-                className="cursor-pointer text-sm font-normal"
+                className="cursor-pointer text-sm font-normal text-gray-600"
               >
                 By logging in, I agree to accept the{' '}
                 <Link
                   href="/terms"
-                  className="text-primary underline-offset-4 hover:underline"
+                  className="font-medium text-skolaroid-blue underline-offset-4 hover:underline"
                 >
                   Terms &amp; Service
                 </Link>
               </Label>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 py-1">
               <Checkbox
                 id="login-remember-device"
                 checked={rememberDevice}
@@ -100,19 +112,21 @@ export function LoginForm({
               />
               <Label
                 htmlFor="login-remember-device"
-                className="cursor-pointer text-sm font-normal"
+                className="cursor-pointer text-sm font-normal text-gray-600"
               >
                 Remember this device
               </Label>
             </div>
           </div>
           <FormError message={error} />
-          <div className="flex items-center gap-4">
+          {/* D4: column layout — full-width primary button, secondary link centered below */}
+          <div className="flex flex-col items-center gap-3 pt-2">
             <FormButton
               type="submit"
               isLoading={isLoading}
               loadingText="Logging in..."
               disabled={!acceptTerms}
+              className="w-full"
             >
               Log In
             </FormButton>
@@ -120,14 +134,14 @@ export function LoginForm({
               <button
                 type="button"
                 onClick={onSwitchToSignUp}
-                className="text-sm underline-offset-4 hover:underline"
+                className="text-sm text-gray-600 hover:text-gray-900"
               >
                 Create an account
               </button>
             ) : (
               <Link
                 href="/auth/sign-up"
-                className="text-sm underline-offset-4 hover:underline"
+                className="text-sm text-gray-600 hover:text-gray-900"
               >
                 Create an account
               </Link>
