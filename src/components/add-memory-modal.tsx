@@ -7,11 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useCreateMemory } from '@/lib/hooks/useCreateMemory';
 import { MOCK_LOCATIONS } from '@/lib/mock-data';
-import {
-  createMemorySchema,
-  type CreateMemoryInput,
-  type MemoryVisibility,
-} from '@/lib/schemas';
+import { createMemorySchema, type MemoryVisibility } from '@/lib/schemas';
 import { Upload, MapPin, FileText, Eye, X, ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 
@@ -230,23 +226,39 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   // ---------------------------------------------------------------------------
 
   const handleSubmit = useCallback(() => {
-    // TODO: programBatchId should come from the authenticated user's session
-    const MOCK_PROGRAM_BATCH_ID = '00000000-0000-0000-0000-000000000001';
-
-    const payload: CreateMemoryInput & { programBatchId: string } = {
+    // Final validation before submitting
+    const parsed = createMemorySchema.safeParse({
       title: formData.title,
       description: formData.description || undefined,
       visibility: formData.visibility,
       locationId: formData.locationId,
       tags: formData.tags.length > 0 ? formData.tags : undefined,
-      programBatchId: MOCK_PROGRAM_BATCH_ID,
-    };
-
-    createMemory(payload, {
-      onSuccess: () => {
-        handleCancel();
-      },
     });
+
+    if (!parsed.success) {
+      const newErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (field && typeof field === 'string') {
+          newErrors[field] = issue.message;
+        }
+      }
+      setErrors(newErrors);
+      setCurrentStep('details');
+      return;
+    }
+
+    // TODO: programBatchId should come from the authenticated user's session
+    const MOCK_PROGRAM_BATCH_ID = '00000000-0000-0000-0000-000000000001';
+
+    createMemory(
+      { ...parsed.data, programBatchId: MOCK_PROGRAM_BATCH_ID },
+      {
+        onSuccess: () => {
+          handleCancel();
+        },
+      }
+    );
   }, [formData, createMemory, handleCancel]);
 
   // ---------------------------------------------------------------------------
@@ -290,8 +302,8 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
           className="flex h-48 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 transition-colors hover:border-skolaroid-blue hover:bg-gray-50"
         >
           <ImageIcon className="h-8 w-8 text-gray-400" />
-          <p className="text-sm text-gray-500">Drag and drop your media here</p>
-          <p className="text-xs text-gray-400">or click to browse</p>
+          <p className="text-sm text-gray-500">Click to browse your media</p>
+          <p className="text-xs text-gray-400">Supports images and videos</p>
         </button>
       )}
     </div>
@@ -514,7 +526,13 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   const isLastStep = currentStep === 'preview';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) handleCancel();
+        else onOpenChange(true);
+      }}
+    >
       <DialogContent
         className="flex h-[500px] max-w-2xl gap-0 overflow-hidden p-0"
         showCloseButton={false}
