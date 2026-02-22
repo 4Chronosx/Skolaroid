@@ -2,8 +2,10 @@
 
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { FormInput } from '@/components/ui/form-input';
+import { FormButton } from '@/components/ui/form-button';
+import { FormError } from '@/components/ui/form-error';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -18,6 +20,8 @@ export function LoginForm({
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(true);
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -46,62 +50,89 @@ export function LoginForm({
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold">Login</h2>
-        <p className="text-sm text-muted-foreground">
-          Enter your email below to login to your account
-        </p>
+        <h2 className="text-2xl font-semibold">Welcome to Skolaroid</h2>
       </div>
       <form onSubmit={handleLogin}>
-        <div className="flex flex-col gap-6">
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="m@example.com"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="password">Password</Label>
-              <Link
-                href="/auth/forgot-password"
-                className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+        <div className="flex flex-col gap-4">
+          <FormInput
+            label="Alumni email address"
+            type="email"
+            placeholder="Enter email address"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <FormInput
+            label="Password"
+            type="password"
+            placeholder="Enter password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="login-accept-terms"
+                checked={acceptTerms}
+                onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+              />
+              <Label
+                htmlFor="login-accept-terms"
+                className="cursor-pointer text-sm font-normal"
               >
-                Forgot your password?
-              </Link>
+                By logging in, I agree to accept the{' '}
+                <Link
+                  href="/terms"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Terms &amp; Service
+                </Link>
+              </Label>
             </div>
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="login-remember-device"
+                checked={rememberDevice}
+                onCheckedChange={(checked) =>
+                  setRememberDevice(checked === true)
+                }
+              />
+              <Label
+                htmlFor="login-remember-device"
+                className="cursor-pointer text-sm font-normal"
+              >
+                Remember this device
+              </Label>
+            </div>
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Logging in...' : 'Login'}
-          </Button>
-        </div>
-        <div className="mt-4 text-center text-sm">
-          Don&apos;t have an account?{' '}
-          {onSwitchToSignUp ? (
-            <button
-              type="button"
-              onClick={onSwitchToSignUp}
-              className="underline underline-offset-4"
+          <FormError message={error} />
+          <div className="flex items-center gap-4">
+            <FormButton
+              type="submit"
+              isLoading={isLoading}
+              loadingText="Logging in..."
+              disabled={!acceptTerms}
             >
-              Sign up
-            </button>
-          ) : (
-            <Link href="/auth/sign-up" className="underline underline-offset-4">
-              Sign up
-            </Link>
-          )}
+              Log In
+            </FormButton>
+            {onSwitchToSignUp ? (
+              <button
+                type="button"
+                onClick={onSwitchToSignUp}
+                className="text-sm underline-offset-4 hover:underline"
+              >
+                Create an account
+              </button>
+            ) : (
+              <Link
+                href="/auth/sign-up"
+                className="text-sm underline-offset-4 hover:underline"
+              >
+                Create an account
+              </Link>
+            )}
+          </div>
         </div>
       </form>
     </div>
