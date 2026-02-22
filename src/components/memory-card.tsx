@@ -14,18 +14,20 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
+export interface MemoryCardMemory {
+  id: string;
+  title: string;
+  description?: string | null;
+  mediaURL?: string | null;
+  visibility: string;
+  createdAt: string;
+  tags?: { id: string; name: string }[];
+  location?: { buildingName: string };
+  _count?: { votes: number };
+}
+
 interface MemoryCardProps {
-  memory: {
-    id: string;
-    title: string;
-    description?: string | null;
-    mediaURL?: string | null;
-    visibility: string;
-    createdAt: string;
-    tags?: { id: string; name: string }[];
-    location?: { buildingName: string };
-    _count?: { votes: number };
-  };
+  memory: MemoryCardMemory;
 }
 
 export function MemoryCard({ memory }: MemoryCardProps) {
