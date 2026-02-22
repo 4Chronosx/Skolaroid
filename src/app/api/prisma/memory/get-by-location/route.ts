@@ -15,7 +15,11 @@ export async function GET(request: NextRequest) {
 
     if (!result.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: result.error.flatten() },
+        {
+          success: false,
+          message: 'Validation failed',
+          details: result.error.flatten(),
+        },
         { status: 400 }
       );
     }
@@ -43,8 +47,13 @@ export async function GET(request: NextRequest) {
       message: 'Memories fetched successfully',
       data: memories,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Unable to fetch memories. Please try again.',
+      },
+      { status: 500 }
+    );
   }
 }

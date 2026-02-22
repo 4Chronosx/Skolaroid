@@ -20,8 +20,13 @@ export async function GET() {
       message: 'Locations fetched successfully',
       data: locations,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Unable to fetch locations. Please try again.',
+      },
+      { status: 500 }
+    );
   }
 }
