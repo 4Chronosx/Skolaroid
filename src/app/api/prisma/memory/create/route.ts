@@ -8,7 +8,11 @@ export async function POST(request: NextRequest) {
     const result = createMemoryServerSchema.safeParse(body);
     if (!result.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: result.error.flatten() },
+        {
+          success: false,
+          message: 'Validation failed',
+          details: result.error.flatten(),
+        },
         { status: 400 }
       );
     }
@@ -28,10 +32,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Memory created successfully',
-      memory: mockMemory,
+      data: mockMemory,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { success: false, message: 'Unable to create memory. Please try again.' },
+      { status: 500 }
+    );
   }
 }
