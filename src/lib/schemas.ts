@@ -47,11 +47,15 @@ export const createMemorySchema = z.object({
     .string()
     .min(1, 'Title is required')
     .max(255, 'Title must be 255 characters or less'),
-  description: z.string().max(5000, 'Description is too long').optional(),
+  description: z
+    .string()
+    .trim()
+    .max(5000, 'Description is too long')
+    .optional(),
   visibility: memoryVisibilityEnum.default('PUBLIC'),
   locationId: z.string().uuid('Invalid location'),
   tags: z
-    .array(z.string().min(1).max(50))
+    .array(z.string().trim().min(1).max(50))
     .max(10, 'Maximum 10 tags')
     .optional(),
 });
