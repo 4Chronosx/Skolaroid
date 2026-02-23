@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Search } from 'lucide-react';
 
 interface BatchesModalProps {
@@ -54,12 +56,12 @@ export function BatchesModal({ open, onOpenChange }: BatchesModalProps) {
                 size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
               />
-              <input
+              <Input
                 type="text"
                 placeholder="Search batches..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-md border border-gray-300 py-1.5 pl-8 pr-2 text-sm placeholder-gray-400 focus:border-skolaroid-blue focus:outline-none"
+                className="pl-8 text-sm"
               />
             </div>
           </div>
@@ -72,11 +74,12 @@ export function BatchesModal({ open, onOpenChange }: BatchesModalProps) {
                   <button
                     key={batch.id}
                     onClick={() => setSelectedBatch(batch)}
-                    className={`block w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
+                    className={cn(
+                      'block w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors',
                       selectedBatch.id === batch.id
                         ? 'bg-skolaroid-blue/10 text-skolaroid-blue'
                         : 'text-gray-600 hover:bg-gray-100'
-                    }`}
+                    )}
                   >
                     {batch.program} {batch.year}
                   </button>
