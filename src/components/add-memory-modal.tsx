@@ -1,13 +1,19 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { TagInput } from '@/components/tag-input';
 import { useCreateMemory } from '@/lib/hooks/useCreateMemory';
 import { MOCK_LOCATIONS } from '@/lib/mock-data';
-import { createMemorySchema, type MemoryVisibility } from '@/lib/schemas';
+import {
+  createMemorySchema,
+  VISIBILITY_LABELS,
+  MAX_TAGS,
+  type MemoryVisibility,
+} from '@/lib/schemas';
 import { Upload, MapPin, FileText, Eye, X, ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 
@@ -50,7 +56,11 @@ const VISIBILITY_OPTIONS: {
   label: string;
   description: string;
 }[] = [
-  { value: 'PUBLIC', label: 'Public', description: 'Visible to everyone' },
+  {
+    value: 'PUBLIC',
+    label: VISIBILITY_LABELS.PUBLIC,
+    description: 'Visible to everyone',
+  },
   {
     value: 'PROGRAM_ONLY',
     label: 'Program Only',
@@ -63,7 +73,7 @@ const VISIBILITY_OPTIONS: {
   },
   {
     value: 'PRIVATE',
-    label: 'Private',
+    label: VISIBILITY_LABELS.PRIVATE,
     description: 'Only you can see this',
   },
 ];
@@ -85,13 +95,26 @@ const INITIAL_FORM_DATA: FormData = {
 export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
-  const [tagInput, setTagInput] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { mutate: createMemory, isPending } = useCreateMemory();
 
   const currentStepIndex = STEPS.indexOf(currentStep);
+
+  // ---------------------------------------------------------------------------
+  // Cleanup Object URLs on unmount to prevent memory leaks
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    return () => {
+      if (formData.mediaPreviewUrl) {
+        URL.revokeObjectURL(formData.mediaPreviewUrl);
+      }
+    };
+    // Only run cleanup on unmount — intentionally excluding formData.mediaPreviewUrl
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -114,6 +137,24 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
     [formData.locationId]
   );
 
+  /** Build the input shape expected by createMemorySchema from current form state. */
+  const buildSchemaInput = useCallback(
+    () => ({
+      title: formData.title,
+      description: formData.description || undefined,
+      visibility: formData.visibility,
+      locationId: formData.locationId,
+      tags: formData.tags.length > 0 ? formData.tags : undefined,
+    }),
+    [
+      formData.title,
+      formData.description,
+      formData.visibility,
+      formData.locationId,
+      formData.tags,
+    ]
+  );
+
   // ---------------------------------------------------------------------------
   // File handling
   // ---------------------------------------------------------------------------
@@ -126,10 +167,20 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
         URL.revokeObjectURL(formData.mediaPreviewUrl);
       }
 
-      updateField('mediaFile', file);
-      updateField('mediaPreviewUrl', URL.createObjectURL(file));
+      const previewUrl = URL.createObjectURL(file);
+      setFormData((prev) => ({
+        ...prev,
+        mediaFile: file,
+        mediaPreviewUrl: previewUrl,
+      }));
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next['mediaFile'];
+        delete next['mediaPreviewUrl'];
+        return next;
+      });
     },
-    [formData.mediaPreviewUrl, updateField]
+    [formData.mediaPreviewUrl]
   );
 
   const handleRemoveFile = useCallback(() => {
@@ -139,28 +190,6 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
     updateField('mediaFile', null);
     updateField('mediaPreviewUrl', null);
   }, [formData.mediaPreviewUrl, updateField]);
-
-  // ---------------------------------------------------------------------------
-  // Tag handling
-  // ---------------------------------------------------------------------------
-
-  const handleAddTag = useCallback(() => {
-    const tag = tagInput.trim();
-    if (!tag || formData.tags.includes(tag) || formData.tags.length >= 10)
-      return;
-    updateField('tags', [...formData.tags, tag]);
-    setTagInput('');
-  }, [tagInput, formData.tags, updateField]);
-
-  const handleRemoveTag = useCallback(
-    (tagToRemove: string) => {
-      updateField(
-        'tags',
-        formData.tags.filter((t) => t !== tagToRemove)
-      );
-    },
-    [formData.tags, updateField]
-  );
 
   // ---------------------------------------------------------------------------
   // Step validation
@@ -174,13 +203,7 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
     }
 
     if (currentStep === 'details') {
-      const result = createMemorySchema.safeParse({
-        title: formData.title,
-        description: formData.description || undefined,
-        visibility: formData.visibility,
-        locationId: formData.locationId,
-        tags: formData.tags.length > 0 ? formData.tags : undefined,
-      });
+      const result = createMemorySchema.safeParse(buildSchemaInput());
 
       if (!result.success) {
         for (const issue of result.error.issues) {
@@ -194,7 +217,7 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [currentStep, formData]);
+  }, [currentStep, formData.locationId, buildSchemaInput]);
 
   // ---------------------------------------------------------------------------
   // Navigation
@@ -214,26 +237,21 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   }, [currentStepIndex]);
 
   const handleCancel = useCallback(() => {
+    if (formData.mediaPreviewUrl) {
+      URL.revokeObjectURL(formData.mediaPreviewUrl);
+    }
     onOpenChange(false);
     setCurrentStep('upload');
     setFormData(INITIAL_FORM_DATA);
-    setTagInput('');
     setErrors({});
-  }, [onOpenChange]);
+  }, [onOpenChange, formData.mediaPreviewUrl]);
 
   // ---------------------------------------------------------------------------
   // Submit
   // ---------------------------------------------------------------------------
 
   const handleSubmit = useCallback(() => {
-    // Final validation before submitting
-    const parsed = createMemorySchema.safeParse({
-      title: formData.title,
-      description: formData.description || undefined,
-      visibility: formData.visibility,
-      locationId: formData.locationId,
-      tags: formData.tags.length > 0 ? formData.tags : undefined,
-    });
+    const parsed = createMemorySchema.safeParse(buildSchemaInput());
 
     if (!parsed.success) {
       const newErrors: Record<string, string> = {};
@@ -259,7 +277,7 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
         },
       }
     );
-  }, [formData, createMemory, handleCancel]);
+  }, [buildSchemaInput, createMemory, handleCancel]);
 
   // ---------------------------------------------------------------------------
   // Step renderers
@@ -383,46 +401,12 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
       {/* Tags */}
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700">
-          Tags ({formData.tags.length}/10)
+          Tags ({formData.tags.length}/{MAX_TAGS})
         </label>
-        <div className="flex gap-2">
-          <Input
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleAddTag();
-              }
-            }}
-            placeholder="Add a tag and press Enter"
-            maxLength={50}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleAddTag}
-            disabled={!tagInput.trim() || formData.tags.length >= 10}
-          >
-            Add
-          </Button>
-        </div>
-        {formData.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {formData.tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="gap-1">
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveTag(tag)}
-                  className="ml-0.5 hover:text-red-500"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        )}
+        <TagInput
+          tags={formData.tags}
+          onTagsChange={(newTags) => updateField('tags', newTags)}
+        />
       </div>
 
       {/* Visibility */}
