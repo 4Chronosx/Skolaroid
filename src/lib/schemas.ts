@@ -65,6 +65,12 @@ export const createMemoryServerSchema = createMemorySchema.extend({
   programBatchId: z.string().uuid('Invalid program batch'),
 });
 
+/** Schema for updating tags on an existing memory. */
+export const updateMemoryTagsSchema = z.object({
+  memoryId: z.string().uuid('Invalid memory ID'),
+  tags: z.array(z.string().trim().min(1).max(50)).max(10, 'Maximum 10 tags'),
+});
+
 // ============================================================================
 // TYPE EXPORTS
 // ============================================================================
@@ -79,3 +85,4 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type MemoryVisibility = z.infer<typeof memoryVisibilityEnum>;
 export type CreateMemoryInput = z.infer<typeof createMemorySchema>;
 export type CreateMemoryServerInput = z.infer<typeof createMemoryServerSchema>;
+export type UpdateMemoryTagsInput = z.infer<typeof updateMemoryTagsSchema>;
