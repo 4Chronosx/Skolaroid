@@ -1,21 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { TagInput } from '@/components/tag-input';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { useCreateMemory } from '@/lib/hooks/useCreateMemory';
 import { MOCK_LOCATIONS } from '@/lib/mock-data';
 import {
   createMemorySchema,
-  VISIBILITY_LABELS,
   MAX_TAGS,
+  VISIBILITY_LABELS,
   type MemoryVisibility,
 } from '@/lib/schemas';
-import { Upload, MapPin, FileText, Eye, X, ImageIcon } from 'lucide-react';
+import { Eye, FileText, ImageIcon, MapPin, Upload, X } from 'lucide-react';
 import Image from 'next/image';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // =============================================================================
 // TYPES
@@ -203,7 +203,13 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
     }
 
     if (currentStep === 'details') {
-      const result = createMemorySchema.safeParse(buildSchemaInput());
+      const detailsOnly = createMemorySchema.pick({
+        title: true,
+        description: true,
+        visibility: true,
+        tags: true,
+      });
+      const result = detailsOnly.safeParse(buildSchemaInput());
 
       if (!result.success) {
         for (const issue of result.error.issues) {
@@ -216,6 +222,9 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
     }
 
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      console.log('[AddMemoryModal] Validation errors:', newErrors);
+    }
     return Object.keys(newErrors).length === 0;
   }, [currentStep, formData.locationId, buildSchemaInput]);
 
