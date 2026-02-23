@@ -8,7 +8,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
-    "prepare": "husky"
+    "prepare": "husky",
+    "migrate:prod": "npx dotenv -e .env.production -- prisma migrate deploy",
+    "migrate:resolve": "npx dotenv -e .env.production -- prisma migrate resolve"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -48,6 +50,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "husky": "^9.1.7",
