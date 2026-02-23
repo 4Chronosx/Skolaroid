@@ -2,8 +2,10 @@
 
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { FormInput } from '@/components/ui/form-input';
+import { FormButton } from '@/components/ui/form-button';
+import { FormError } from '@/components/ui/form-error';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -16,9 +18,12 @@ export function SignUpForm({
 }: React.ComponentPropsWithoutRef<'div'> & {
   onSwitchToLogin?: () => void;
 }) {
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
-  const [repeatPassword, setRepeatPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(true);
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -29,18 +34,16 @@ export function SignUpForm({
     setIsLoading(true);
     setError(null);
 
-    if (password !== repeatPassword) {
-      setError('Passwords do not match');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/onboarding`,
+          data: {
+            full_name: fullName,
+            student_id: studentId,
+          },
         },
       });
       if (error) throw error;
@@ -53,68 +56,125 @@ export function SignUpForm({
   };
 
   return (
-    <div className={cn('flex flex-col gap-6', className)} {...props}>
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold">Sign up</h2>
-        <p className="text-sm text-muted-foreground">Create a new account</p>
-      </div>
+    // D1: p-8 = 32px internal padding
+    <div
+      className={cn('flex flex-col gap-4 rounded-2xl p-6', className)}
+      {...props}
+    >
+      {/* D2: h1 + font-bold for clear visual hierarchy */}
+      <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+        Get Started
+      </h1>
       <form onSubmit={handleSignUp}>
+        {/* D1: gap-6 = 24px between field groups */}
         <div className="flex flex-col gap-6">
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="m@example.com"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="password">Password</Label>
+          {/* D2: labelClassName font-semibold; D3: h-10 + border-gray-300 standardized across all 4 inputs */}
+          <FormInput
+            label="Full Name"
+            type="text"
+            placeholder="Enter Last Name, Given Name"
+            required
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
+          />
+          <FormInput
+            label="Alumni email address"
+            type="email"
+            placeholder="Enter email address"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
+          />
+          <FormInput
+            label="Student ID"
+            type="text"
+            placeholder="Enter your UP Student ID"
+            required
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
+          />
+          <FormInput
+            label="Create new password"
+            type="password"
+            placeholder="Enter password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            labelClassName="font-semibold text-gray-700"
+            className="h-10 border border-gray-300"
+          />
+          {/* D5: gap-3 between rows; py-1 on each row for mobile tap targets */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 py-1">
+              <Checkbox
+                id="signup-accept-terms"
+                checked={acceptTerms}
+                onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+              />
+              <Label
+                htmlFor="signup-accept-terms"
+                className="cursor-pointer text-sm font-normal text-gray-600"
+              >
+                By registering, I agree to accept the{' '}
+                <Link
+                  href="/terms"
+                  className="font-medium text-skolaroid-blue underline-offset-4 hover:underline"
+                >
+                  Terms &amp; Service
+                </Link>
+              </Label>
             </div>
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="repeat-password">Repeat Password</Label>
+            <div className="flex items-center gap-2 py-1">
+              <Checkbox
+                id="signup-remember-device"
+                checked={rememberDevice}
+                onCheckedChange={(checked) =>
+                  setRememberDevice(checked === true)
+                }
+              />
+              <Label
+                htmlFor="signup-remember-device"
+                className="cursor-pointer text-sm font-normal text-gray-600"
+              >
+                Remember this device
+              </Label>
             </div>
-            <Input
-              id="repeat-password"
-              type="password"
-              required
-              value={repeatPassword}
-              onChange={(e) => setRepeatPassword(e.target.value)}
-            />
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Creating an account...' : 'Sign up'}
-          </Button>
-        </div>
-        <div className="mt-4 text-center text-sm">
-          Already have an account?{' '}
-          {onSwitchToLogin ? (
-            <button
-              type="button"
-              onClick={onSwitchToLogin}
-              className="underline underline-offset-4"
+          <FormError message={error} />
+          {/* D4: column layout — full-width primary button, secondary link centered below */}
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <FormButton
+              type="submit"
+              isLoading={isLoading}
+              loadingText="Creating account..."
+              disabled={!acceptTerms}
+              className="w-full"
             >
-              Login
-            </button>
-          ) : (
-            <Link href="/auth/login" className="underline underline-offset-4">
-              Login
-            </Link>
-          )}
+              Register
+            </FormButton>
+            {onSwitchToLogin ? (
+              <button
+                type="button"
+                onClick={onSwitchToLogin}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Log to existing
+              </button>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Log to existing
+              </Link>
+            )}
+          </div>
         </div>
       </form>
     </div>
