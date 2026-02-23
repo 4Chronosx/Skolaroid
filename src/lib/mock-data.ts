@@ -298,3 +298,77 @@ export const MOCK_MEMORIES = [
 ];
 
 export type MockMemory = (typeof MOCK_MEMORIES)[number];
+
+/**
+ * Mock tag data for autocomplete and tag API routes.
+ * Extracted from MOCK_MEMORIES for standalone access.
+ *
+ * TODO: Remove once SCRUM-54 database integration is complete.
+ */
+export const MOCK_TAGS = [
+  {
+    id: '30000000-0000-0000-0000-000000000001',
+    name: 'freshman',
+    slug: 'freshman',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000002',
+    name: 'batch-2024',
+    slug: 'batch-2024',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000003',
+    name: 'tradition',
+    slug: 'tradition',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000004',
+    name: 'academics',
+    slug: 'academics',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000005',
+    name: 'finals',
+    slug: 'finals',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000006',
+    name: 'event',
+    slug: 'event',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000007',
+    name: 'music',
+    slug: 'music',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000008',
+    name: 'night-event',
+    slug: 'night-event',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000009',
+    name: 'activism',
+    slug: 'activism',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+] as const;
+
+export type MockTag = (typeof MOCK_TAGS)[number];
