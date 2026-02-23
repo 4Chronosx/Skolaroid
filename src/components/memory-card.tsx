@@ -16,28 +16,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { EditTagsDialog } from '@/components/edit-tags-dialog';
 import { Pencil } from 'lucide-react';
-import type { MemoryVisibility } from '@/lib/schemas';
-
-const VISIBILITY_LABELS: Record<MemoryVisibility, string> = {
-  PUBLIC: 'Public',
-  PROGRAM_ONLY: 'Program',
-  BATCH_ONLY: 'Batch',
-  PRIVATE: 'Private',
-};
-
-export interface MemoryCardMemory {
-  id: string;
-  title: string;
-  description?: string | null;
-  mediaURL?: string | null;
-  visibility: MemoryVisibility;
-  tags?: { id: string; name: string }[];
-  location?: { buildingName: string };
-  _count?: { votes: number };
-}
+import { VISIBILITY_LABELS, type MemoryWithRelations } from '@/lib/schemas';
 
 interface MemoryCardProps {
-  memory: MemoryCardMemory;
+  memory: MemoryWithRelations;
 }
 
 export function MemoryCard({ memory }: MemoryCardProps) {

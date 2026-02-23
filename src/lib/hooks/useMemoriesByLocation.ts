@@ -1,12 +1,12 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import type { MemoryCardMemory } from '@/components/memory-card';
+import type { MemoryWithRelations } from '@/lib/schemas';
 
 interface MemoriesByLocationResponse {
   success: boolean;
   message: string;
-  data: MemoryCardMemory[];
+  data: MemoryWithRelations[];
 }
 
 export function useMemoriesByLocation(locationId: string | null) {

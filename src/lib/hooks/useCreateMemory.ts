@@ -1,7 +1,16 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { CreateMemoryServerInput } from '@/lib/schemas';
+import type {
+  CreateMemoryServerInput,
+  MemoryWithRelations,
+} from '@/lib/schemas';
+
+interface CreateMemoryResponse {
+  success: boolean;
+  message: string;
+  data: MemoryWithRelations;
+}
 
 export function useCreateMemory() {
   const queryClient = useQueryClient();
@@ -21,11 +30,7 @@ export function useCreateMemory() {
             'Failed to create memory'
         );
       }
-      return res.json() as Promise<{
-        success: boolean;
-        message: string;
-        data: Record<string, unknown>;
-      }>;
+      return res.json() as Promise<CreateMemoryResponse>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['memories'] });
