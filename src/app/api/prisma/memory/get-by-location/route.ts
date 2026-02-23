@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { memoriesByLocationQuerySchema } from '@/lib/schemas';
 import { MOCK_MEMORIES } from '@/lib/mock-data';
-
-const querySchema = z.object({
-  locationId: z.string().uuid('Invalid location ID'),
-});
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const result = querySchema.safeParse({
+    const result = memoriesByLocationQuerySchema.safeParse({
       locationId: searchParams.get('locationId'),
     });
 
@@ -17,8 +13,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Validation failed',
-          details: result.error.flatten(),
+          message: result.error.issues[0]?.message ?? 'Validation failed',
         },
         { status: 400 }
       );

@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { updateMemoryTagsSchema } from '@/lib/schemas';
 import { slugify } from '@/lib/slugify';
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
     const body: unknown = await request.json();
     const result = updateMemoryTagsSchema.safeParse(body);
