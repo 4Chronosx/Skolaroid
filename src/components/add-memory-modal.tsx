@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useCreateMemory } from '@/lib/hooks/useCreateMemory';
+import { useTags } from '@/lib/hooks/useTags';
 import { MOCK_LOCATIONS } from '@/lib/mock-data';
 import { createMemorySchema, type MemoryVisibility } from '@/lib/schemas';
 import { Upload, MapPin, FileText, Eye, X, ImageIcon } from 'lucide-react';
@@ -86,6 +87,7 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [tagInput, setTagInput] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -113,6 +115,21 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
     () => MOCK_LOCATIONS.find((loc) => loc.id === formData.locationId),
     [formData.locationId]
   );
+
+  const { data: tagsData } = useTags();
+
+  const filteredSuggestions = useMemo(() => {
+    const query = tagInput.trim().toLowerCase();
+    if (!query) return [];
+    const allTags = tagsData?.data ?? [];
+    return allTags
+      .filter(
+        (t) =>
+          t.name.toLowerCase().includes(query) &&
+          !formData.tags.includes(t.name)
+      )
+      .slice(0, 5);
+  }, [tagInput, tagsData?.data, formData.tags]);
 
   // ---------------------------------------------------------------------------
   // File handling
@@ -385,27 +402,54 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
         <label className="block text-sm font-medium text-gray-700">
           Tags ({formData.tags.length}/10)
         </label>
-        <div className="flex gap-2">
-          <Input
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleAddTag();
-              }
-            }}
-            placeholder="Add a tag and press Enter"
-            maxLength={50}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleAddTag}
-            disabled={!tagInput.trim() || formData.tags.length >= 10}
-          >
-            Add
-          </Button>
+        <div className="relative">
+          <div className="flex gap-2">
+            <Input
+              value={tagInput}
+              onChange={(e) => {
+                setTagInput(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTag();
+                  setShowSuggestions(false);
+                }
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setShowSuggestions(false)}
+              placeholder="Add a tag and press Enter"
+              maxLength={50}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleAddTag}
+              disabled={!tagInput.trim() || formData.tags.length >= 10}
+            >
+              Add
+            </Button>
+          </div>
+          {showSuggestions && filteredSuggestions.length > 0 && (
+            <div className="absolute z-10 mt-1 w-full rounded-md border bg-white shadow-lg">
+              {filteredSuggestions.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    updateField('tags', [...formData.tags, tag.name]);
+                    setTagInput('');
+                    setShowSuggestions(false);
+                  }}
+                >
+                  {tag.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {formData.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-1">
