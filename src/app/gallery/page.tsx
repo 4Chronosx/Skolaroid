@@ -187,7 +187,7 @@ export default function GalleryPage() {
   }, [isDragging, startX, scrollLeft]);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col bg-gray-50">
       <Header />
       <div className="flex flex-1 pt-16">
         {/* Color Strip - Left Edge */}
@@ -203,7 +203,7 @@ export default function GalleryPage() {
         <div
           ref={scrollRef}
           onMouseDown={handleMouseDown}
-          className={`scrollbar-hide flex flex-1 items-center overflow-x-auto overflow-y-hidden ${
+          className={`scrollbar-hide flex flex-1 items-center overflow-x-auto overflow-y-hidden bg-gray-50 ${
             isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'
           }`}
         >
