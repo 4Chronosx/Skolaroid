@@ -104,6 +104,16 @@ const TAGS = [
     name: 'activism',
     slug: 'activism',
   },
+  {
+    id: '20000000-0000-4000-8000-000000000010',
+    name: 'sunset',
+    slug: 'sunset',
+  },
+  {
+    id: '20000000-0000-4000-8000-000000000011',
+    name: 'culture',
+    slug: 'culture',
+  },
 ] as const;
 
 // A single seed program + batch so the memory FK is satisfied.
@@ -200,7 +210,7 @@ const MEMORIES = [
     programBatchId: PROGRAM_BATCH_ID,
     tagSlugs: ['activism'],
   },
-  // --- Amphitheater/Sunset Garden (1 memory) ---
+  // --- Amphitheater/Sunset Garden (3 memories) ---
   {
     id: '60000000-0000-4000-8000-000000000008',
     title: 'Lantern Parade 2024',
@@ -211,6 +221,28 @@ const MEMORIES = [
     locationId: '10000000-0000-4000-8000-000000000004',
     programBatchId: PROGRAM_BATCH_ID,
     tagSlugs: ['tradition', 'event'],
+  },
+  {
+    id: '60000000-0000-4000-8000-000000000009',
+    title: 'Sunset Watch with Blockmates',
+    description:
+      'We sat at the garden steps after a long day of classes and just watched the sun sink into the sea. Nobody wanted to leave.',
+    mediaURL: null,
+    visibility: 'PUBLIC' as const,
+    locationId: '10000000-0000-4000-8000-000000000004',
+    programBatchId: PROGRAM_BATCH_ID,
+    tagSlugs: ['sunset'],
+  },
+  {
+    id: '60000000-0000-4000-8000-000000000010',
+    title: 'Cultural Night at the Amphitheater',
+    description:
+      'The batch staged a short cultural production — traditional dances, original compositions, and a lot of heart.',
+    mediaURL: null,
+    visibility: 'BATCH_ONLY' as const,
+    locationId: '10000000-0000-4000-8000-000000000004',
+    programBatchId: PROGRAM_BATCH_ID,
+    tagSlugs: ['event', 'culture'],
   },
   // --- Science Building (0 memories) — intentionally empty ---
 ] as const;

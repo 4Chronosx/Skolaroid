@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { memoriesByLocationQuerySchema } from '@/lib/schemas';
 import { prisma } from '@/lib/prisma';
+import { MOCK_MEMORIES } from '@/lib/mock-data';
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +44,21 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // DEV FALLBACK: if no real DB rows exist yet, serve mock data so the UI
+    // is populated during development. Remove once the DB is reliably seeded.
+    if (memories.length === 0) {
+      const fallback = MOCK_MEMORIES.filter((m) =>
+        result.data.buildingName
+          ? m.location.buildingName === result.data.buildingName
+          : m.locationId === result.data.locationId
+      );
+      return NextResponse.json({
+        success: true,
+        message: 'Memories fetched successfully',
+        data: fallback,
+      });
+    }
 
     return NextResponse.json({
       success: true,

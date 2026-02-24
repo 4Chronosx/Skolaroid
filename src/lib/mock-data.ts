@@ -38,6 +38,14 @@ export const MOCK_LOCATIONS = [
     latitude: 10.321,
     longitude: 123.8982,
   },
+  {
+    id: '10000000-0000-4000-8000-000000000006',
+    buildingName: 'Amphitheater/Sunset Garden',
+    description:
+      'Amphitheater and open garden facing the sea — popular for sunsets',
+    latitude: 10.323369,
+    longitude: 123.897727,
+  },
 ] as const;
 
 export type MockLocation = (typeof MOCK_LOCATIONS)[number];
@@ -293,6 +301,69 @@ export const MOCK_MEMORIES = [
     _count: { votes: 31 },
   },
 
+  // --- Amphitheater/Sunset Garden (2 memories) ---
+  {
+    id: '10000000-0000-0000-0000-000000000009',
+    title: 'Sunset Watch with Blockmates',
+    description:
+      'We sat at the garden steps after a long day of classes and just watched the sun sink into the sea. Nobody wanted to leave.',
+    mediaURL: '/temporary_map.png',
+    uploadDate: '2024-10-12T17:45:00.000Z',
+    visibility: 'PUBLIC' as const,
+    isArchived: false,
+    deletedAt: null,
+    creatorId: null,
+    programBatchId: '20000000-0000-0000-0000-000000000001',
+    locationId: '10000000-0000-4000-8000-000000000006',
+    createdAt: '2024-10-12T17:45:00.000Z',
+    updatedAt: '2024-10-12T17:45:00.000Z',
+    location: {
+      id: '10000000-0000-4000-8000-000000000006',
+      buildingName: 'Amphitheater/Sunset Garden',
+    },
+    tags: [
+      {
+        id: '30000000-0000-0000-0000-000000000010',
+        name: 'sunset',
+        slug: 'sunset',
+      },
+    ],
+    _count: { votes: 22 },
+  },
+  {
+    id: '10000000-0000-0000-0000-000000000010',
+    title: 'Cultural Night at the Amphitheater',
+    description:
+      'The batch staged a short cultural production at the open amphitheater — traditional dances, original compositions, and a lot of heart.',
+    mediaURL: '/temporary_map.png',
+    uploadDate: '2025-02-14T18:30:00.000Z',
+    visibility: 'BATCH_ONLY' as const,
+    isArchived: false,
+    deletedAt: null,
+    creatorId: null,
+    programBatchId: '20000000-0000-0000-0000-000000000001',
+    locationId: '10000000-0000-4000-8000-000000000006',
+    createdAt: '2025-02-14T18:30:00.000Z',
+    updatedAt: '2025-02-14T18:30:00.000Z',
+    location: {
+      id: '10000000-0000-4000-8000-000000000006',
+      buildingName: 'Amphitheater/Sunset Garden',
+    },
+    tags: [
+      {
+        id: '30000000-0000-0000-0000-000000000006',
+        name: 'event',
+        slug: 'event',
+      },
+      {
+        id: '30000000-0000-0000-0000-000000000011',
+        name: 'culture',
+        slug: 'culture',
+      },
+    ],
+    _count: { votes: 14 },
+  },
+
   // --- College of Engineering (0 memories) ---
   // Intentionally empty to test the "no memories" empty state
 ];
@@ -366,6 +437,20 @@ export const MOCK_TAGS = [
     id: '30000000-0000-0000-0000-000000000009',
     name: 'activism',
     slug: 'activism',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000010',
+    name: 'sunset',
+    slug: 'sunset',
+    createdAt: '2024-08-01T00:00:00.000Z',
+    updatedAt: '2024-08-01T00:00:00.000Z',
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000011',
+    name: 'culture',
+    slug: 'culture',
     createdAt: '2024-08-01T00:00:00.000Z',
     updatedAt: '2024-08-01T00:00:00.000Z',
   },
