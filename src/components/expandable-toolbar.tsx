@@ -64,7 +64,7 @@ export function ExpandableToolbar({
                   ? 'bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90'
                   : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
               }`}
-              aria-label={showLandmarks ? 'Hide landmarks' : 'Show landmarks'}
+              aria-label={showLandmarks ? 'Show pins' : 'Show landmarks'}
             >
               <MapPin size={20} />
             </button>

@@ -34,12 +34,8 @@ export function MapComponent() {
   const router = useRouter();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const [mapError, setMapError] = useState<string | null>(() => {
-    if (!MAPBOX_TOKEN) return 'Mapbox token not configured';
-    if (!mapboxgl.supported())
-      return 'WebGL is not supported on this browser. Please use a modern browser with WebGL support.';
-    return null;
-  });
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
   const [addMemoryOpen, setAddMemoryOpen] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [batchesModalOpen, setBatchesModalOpen] = useState(false);
@@ -50,6 +46,7 @@ export function MapComponent() {
     useState<MemoryWithCoordinates | null>(null);
   const [memoryDetailOpen, setMemoryDetailOpen] = useState(false);
   const [showLandmarks, setShowLandmarks] = useState(true);
+  const [showMemoryPins, setShowMemoryPins] = useState(false);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const markerRootsRef = useRef<{ root: Root; landmark: Landmark }[]>([]);
   const memoryMarkersRef = useRef<mapboxgl.Marker[]>([]);
@@ -88,7 +85,21 @@ export function MapComponent() {
   }, []);
 
   useEffect(() => {
+    setIsClient(true);
     if (!MAPBOX_TOKEN) {
+      setMapError('Mapbox token not configured');
+      return;
+    }
+    if (!mapboxgl.supported()) {
+      setMapError(
+        'WebGL is not supported on this browser. Please use a modern browser with WebGL support.'
+      );
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || !MAPBOX_TOKEN || mapError) {
       return;
     }
 
@@ -171,7 +182,7 @@ export function MapComponent() {
         }, 0);
       }
     }
-  }, [handleLandmarkClick]);
+  }, [isClient, handleLandmarkClick, mapError]);
 
   // Re-render marker roots when memory counts update or visibility changes
   useEffect(() => {
@@ -196,9 +207,24 @@ export function MapComponent() {
     });
   }, [showLandmarks]);
 
+  // Toggle memory pin marker visibility
+  useEffect(() => {
+    if (!showMemoryPins) {
+      // Clean up memory markers when hiding pins
+      memoryMarkersRef.current.forEach((m) => m.remove());
+      memoryMarkersRef.current = [];
+
+      const oldRoots = [...memoryRootsRef.current];
+      memoryRootsRef.current = [];
+      setTimeout(() => {
+        oldRoots.forEach((r) => r.unmount());
+      }, 0);
+    }
+  }, [showMemoryPins]);
+
   // Render memory pin markers
   useEffect(() => {
-    if (!mapRef.current || memories.length === 0) return;
+    if (!mapRef.current || memories.length === 0 || !showMemoryPins) return;
 
     // Clean up existing memory markers
     memoryMarkersRef.current.forEach((m) => m.remove());
@@ -233,7 +259,11 @@ export function MapComponent() {
 
       memoryMarkersRef.current.push(marker);
     });
-  }, [memories, handleMemoryClick]);
+  }, [memories, handleMemoryClick, showMemoryPins]);
+
+  if (!isClient) {
+    return <div className="relative h-full w-full" />;
+  }
 
   if (mapError) {
     return (
@@ -276,7 +306,10 @@ export function MapComponent() {
         onBatchesClick={() => setBatchesModalOpen(true)}
         onConfigureClick={() => router.push('/admin')}
         showLandmarks={showLandmarks}
-        onToggleLandmarks={setShowLandmarks}
+        onToggleLandmarks={(show) => {
+          setShowLandmarks(show);
+          setShowMemoryPins(!show);
+        }}
       />
 
       {/* Group Modal */}
@@ -305,6 +338,33 @@ export function MapComponent() {
         memory={selectedMemory}
         open={memoryDetailOpen}
         onOpenChange={setMemoryDetailOpen}
+        hasPrevious={
+          selectedMemory
+            ? memories.findIndex((m) => m.id === selectedMemory.id) > 0
+            : false
+        }
+        hasNext={
+          selectedMemory
+            ? memories.findIndex((m) => m.id === selectedMemory.id) <
+              memories.length - 1
+            : false
+        }
+        onPrevious={() => {
+          if (selectedMemory) {
+            const currentIndex = memories.findIndex(
+              (m) => m.id === selectedMemory.id
+            );
+            setSelectedMemory(memories[currentIndex - 1]);
+          }
+        }}
+        onNext={() => {
+          if (selectedMemory) {
+            const currentIndex = memories.findIndex(
+              (m) => m.id === selectedMemory.id
+            );
+            setSelectedMemory(memories[currentIndex + 1]);
+          }
+        }}
       />
     </div>
   );
