@@ -14,8 +14,8 @@ export function AccountMenu() {
   const { logout } = useUserAuth();
   const router = useRouter();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push('/');
   };
 
