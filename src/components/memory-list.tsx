@@ -6,14 +6,22 @@ import { useMemoriesByLocation } from '@/lib/hooks/useMemoriesByLocation';
 import { MemoryCard } from '@/components/memory-card';
 
 interface MemoryListProps {
-  locationId: string | null;
+  locationId?: string | null;
+  buildingName?: string | null;
   locationName?: string;
 }
 
-export function MemoryList({ locationId, locationName }: MemoryListProps) {
-  const { data, isPending, isError } = useMemoriesByLocation(locationId);
+export function MemoryList({
+  locationId,
+  buildingName,
+  locationName,
+}: MemoryListProps) {
+  const { data, isPending, isError } = useMemoriesByLocation({
+    locationId,
+    buildingName,
+  });
 
-  if (!locationId) {
+  if (!locationId && !buildingName) {
     return (
       <div className="flex items-center justify-center p-8 text-muted-foreground">
         Select a landmark to view memories

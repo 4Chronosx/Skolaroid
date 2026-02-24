@@ -6,7 +6,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const result = memoriesByLocationQuerySchema.safeParse({
-      locationId: searchParams.get('locationId'),
+      locationId: searchParams.get('locationId') || undefined,
+      buildingName: searchParams.get('buildingName') || undefined,
     });
 
     if (!result.success) {
@@ -19,11 +20,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const whereClause: {
+      deletedAt: null;
+      locationId?: string;
+      location?: { buildingName: string };
+    } = {
+      deletedAt: null,
+    };
+
+    if (result.data.locationId) {
+      whereClause.locationId = result.data.locationId;
+    } else if (result.data.buildingName) {
+      whereClause.location = { buildingName: result.data.buildingName };
+    }
+
     const memories = await prisma.memory.findMany({
-      where: {
-        locationId: result.data.locationId,
-        deletedAt: null,
-      },
+      where: whereClause,
       include: {
         tags: true,
         location: { select: { id: true, buildingName: true } },

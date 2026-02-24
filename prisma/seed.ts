@@ -31,38 +31,38 @@ const supabaseAdmin = createClient(
 const LOCATIONS = [
   {
     id: '10000000-0000-4000-8000-000000000001',
-    buildingName: 'Oblation Plaza',
-    description: 'Main entrance and iconic landmark',
-    latitude: 14.6537,
-    longitude: 121.0685,
+    buildingName: 'Administration Building',
+    description: 'Main administrative offices of UP Cebu',
+    latitude: 10.322329,
+    longitude: 123.898199,
   },
   {
     id: '10000000-0000-4000-8000-000000000002',
-    buildingName: 'UP Main Library',
-    description: 'Gonzalez Hall — central library',
-    latitude: 14.6544,
-    longitude: 121.0703,
+    buildingName: 'Library Building',
+    description: 'Campus library and study area',
+    latitude: 10.321434,
+    longitude: 123.897985,
   },
   {
     id: '10000000-0000-4000-8000-000000000003',
-    buildingName: 'AS Steps',
-    description: 'College of Arts and Sciences amphitheater steps',
-    latitude: 14.6539,
-    longitude: 121.0711,
+    buildingName: 'Oblation Square',
+    description: 'Central open area with the Oblation statue',
+    latitude: 10.322395,
+    longitude: 123.898569,
   },
   {
     id: '10000000-0000-4000-8000-000000000004',
-    buildingName: 'Sunken Garden',
-    description: 'Open field for events and gatherings',
-    latitude: 14.6546,
-    longitude: 121.0695,
+    buildingName: 'Amphitheater/Sunset Garden',
+    description: 'Open amphitheater and garden area',
+    latitude: 10.323369,
+    longitude: 123.897727,
   },
   {
     id: '10000000-0000-4000-8000-000000000005',
-    buildingName: 'College of Engineering',
-    description: 'Melchor Hall and surrounding buildings',
-    latitude: 14.6556,
-    longitude: 121.0662,
+    buildingName: 'Science Building',
+    description: 'College of Science building',
+    latitude: 10.322249,
+    longitude: 123.897939,
   },
 ] as const;
 
@@ -123,12 +123,12 @@ const SEED_USER = {
 } as const;
 
 const MEMORIES = [
-  // --- Oblation Plaza (3 memories) ---
+  // --- Administration Building (3 memories) ---
   {
     id: '60000000-0000-4000-8000-000000000001',
-    title: 'Freshman Welcome at Oblation Plaza',
+    title: 'Freshman Welcome at the Admin Building',
     description:
-      'The first day of classes — batch 2024 gathered at the Oblation for the traditional photo.',
+      'The first day of classes — batch 2024 gathered at the Admin Building for the traditional photo.',
     mediaURL: null,
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000001',
@@ -137,9 +137,9 @@ const MEMORIES = [
   },
   {
     id: '60000000-0000-4000-8000-000000000002',
-    title: 'Oblation Run 2024',
+    title: 'Enrollment Day Rush',
     description:
-      'Annual tradition — the brave ones sprint across the plaza at dawn.',
+      'Annual tradition — the long queues and early mornings at the admin office.',
     mediaURL: null,
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000001',
@@ -148,7 +148,7 @@ const MEMORIES = [
   },
   {
     id: '60000000-0000-4000-8000-000000000003',
-    title: 'Sunset at the Oblation',
+    title: 'Sunset at the Admin Building',
     description: null,
     mediaURL: null,
     visibility: 'PROGRAM_ONLY' as const,
@@ -156,7 +156,7 @@ const MEMORIES = [
     programBatchId: PROGRAM_BATCH_ID,
     tagSlugs: [],
   },
-  // --- UP Main Library (2 memories) ---
+  // --- Library Building (2 memories) ---
   {
     id: '60000000-0000-4000-8000-000000000004',
     title: 'Finals Week Study Session',
@@ -171,17 +171,17 @@ const MEMORIES = [
   {
     id: '60000000-0000-4000-8000-000000000005',
     title: 'Library Book Fair',
-    description: 'Annual book fair hosted in the Gonzalez Hall lobby.',
+    description: 'Annual book fair hosted in the library lobby.',
     mediaURL: null,
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000002',
     programBatchId: PROGRAM_BATCH_ID,
     tagSlugs: ['event'],
   },
-  // --- AS Steps (2 memories) ---
+  // --- Oblation Square (2 memories) ---
   {
     id: '60000000-0000-4000-8000-000000000006',
-    title: 'Acoustic Night at AS Steps',
+    title: 'Acoustic Night at Oblation Square',
     description:
       'Student bands played until midnight — one of the best nights on campus.',
     mediaURL: null,
@@ -192,27 +192,27 @@ const MEMORIES = [
   },
   {
     id: '60000000-0000-4000-8000-000000000007',
-    title: 'Protest Rally for Academic Freedom',
-    description: 'Students gathered at the steps for a peaceful rally.',
+    title: 'Rally for Academic Freedom',
+    description: 'Students gathered at the square for a peaceful rally.',
     mediaURL: null,
     visibility: 'BATCH_ONLY' as const,
     locationId: '10000000-0000-4000-8000-000000000003',
     programBatchId: PROGRAM_BATCH_ID,
     tagSlugs: ['activism'],
   },
-  // --- Sunken Garden (1 memory) ---
+  // --- Amphitheater/Sunset Garden (1 memory) ---
   {
     id: '60000000-0000-4000-8000-000000000008',
     title: 'Lantern Parade 2024',
     description:
-      'The entire garden lit up with handmade lanterns — a beautiful sight every December.',
+      'The amphitheater lit up with handmade lanterns — a beautiful sight every December.',
     mediaURL: null,
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000004',
     programBatchId: PROGRAM_BATCH_ID,
     tagSlugs: ['tradition', 'event'],
   },
-  // --- College of Engineering (0 memories) — intentionally empty ---
+  // --- Science Building (0 memories) — intentionally empty ---
 ] as const;
 
 // ---------------------------------------------------------------------------

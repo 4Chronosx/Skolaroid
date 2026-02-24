@@ -83,10 +83,15 @@ export const updateMemoryTagsSchema = z.object({
     .max(MAX_TAGS, 'Maximum 10 tags'),
 });
 
-/** Schema for querying memories by location. */
-export const memoriesByLocationQuerySchema = z.object({
-  locationId: z.string().uuid('Invalid location ID'),
-});
+/** Schema for querying memories by location (supports UUID or building name). */
+export const memoriesByLocationQuerySchema = z
+  .object({
+    locationId: z.string().uuid('Invalid location ID').optional(),
+    buildingName: z.string().min(1, 'Building name is required').optional(),
+  })
+  .refine((data) => data.locationId || data.buildingName, {
+    message: 'Either locationId or buildingName is required',
+  });
 
 // ============================================================================
 // MEMORY TYPE EXPORTS

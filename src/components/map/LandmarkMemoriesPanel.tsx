@@ -73,7 +73,10 @@ export function LandmarkMemoriesPanel({
 
           {/* Memory list (scrollable) */}
           <div className="scrollbar-hide flex-1 overflow-y-auto">
-            <MemoryList locationId={landmark.id} locationName={landmark.name} />
+            <MemoryList
+              buildingName={landmark.name}
+              locationName={landmark.name}
+            />
           </div>
         </>
       )}
