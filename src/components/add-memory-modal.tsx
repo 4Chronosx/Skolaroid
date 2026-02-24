@@ -304,10 +304,14 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
     const parsed = createMemorySchema.safeParse(buildSchemaInput());
     if (!parsed.success) return;
 
-    const MOCK_PROGRAM_BATCH_ID = '00000000-0000-0000-0000-000000000001';
+    const MOCK_PROGRAM_BATCH_ID = '50000000-0000-4000-8000-000000000001';
 
     createMemory(
-      { ...parsed.data, programBatchId: MOCK_PROGRAM_BATCH_ID },
+      {
+        ...parsed.data,
+        programBatchId: MOCK_PROGRAM_BATCH_ID,
+        mediaFile: formData.mediaFile ?? undefined,
+      },
       {
         onSuccess: () => {
           handleCancel();
@@ -315,7 +319,13 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
         onError: (err) => console.error('create failed', err),
       }
     );
-  }, [buildSchemaInput, createMemory, handleCancel, hasAgreed]);
+  }, [
+    buildSchemaInput,
+    createMemory,
+    handleCancel,
+    hasAgreed,
+    formData.mediaFile,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Step renderers

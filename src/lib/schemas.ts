@@ -73,6 +73,7 @@ export const createMemorySchema = z.object({
 /** Server-side schema — same fields sent over the wire (no File objects). */
 export const createMemoryServerSchema = createMemorySchema.extend({
   programBatchId: z.string().min(1, 'Program batch is required'), // change to uuid later
+  mediaURL: z.string().url('Invalid media URL').optional(),
 });
 
 /** Schema for updating tags on an existing memory. */

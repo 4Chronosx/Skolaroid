@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -32,15 +32,19 @@ export function EditTagsDialog({
   const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const { mutate: updateTags, isPending } = useUpdateMemoryTags();
-
-  // Reset state when dialog opens with a (potentially different) memory
-  useEffect(() => {
+  // Track previous open/memoryId to reset state when the dialog opens
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevMemoryId, setPrevMemoryId] = useState(memory.id);
+  if (open !== prevOpen || memory.id !== prevMemoryId) {
+    setPrevOpen(open);
+    setPrevMemoryId(memory.id);
     if (open) {
       setTags(memory.tags?.map((t) => t.name) ?? []);
       setError(null);
     }
-  }, [open, memory.id, memory.tags]);
+  }
+
+  const { mutate: updateTags, isPending } = useUpdateMemoryTags();
 
   const handleSave = () => {
     setError(null);
