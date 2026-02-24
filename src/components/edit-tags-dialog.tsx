@@ -37,7 +37,6 @@ export function EditTagsDialog({
   // Reset state when dialog opens with a (potentially different) memory
   useEffect(() => {
     if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTags(memory.tags?.map((t) => t.name) ?? []);
       setError(null);
     }
