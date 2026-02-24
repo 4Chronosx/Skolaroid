@@ -136,7 +136,7 @@ DIRECT_URL="postgresql://user:password@host:5432/skolaroid"
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL="your-supabase-url"
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="your-supabase-anon-key"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY="your-supabase-anon-key"
 
 # Mapbox
 NEXT_PUBLIC_MAPBOX_TOKEN="your-mapbox-token"
