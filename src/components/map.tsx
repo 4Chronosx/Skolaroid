@@ -11,7 +11,13 @@ import { BatchesModal } from './batches-modal';
 import { ExpandableToolbar } from './expandable-toolbar';
 import { LandmarkMarker } from './map/LandmarkMarker';
 import { LandmarkMemoriesPanel } from './map/LandmarkMemoriesPanel';
+import { MemoryPin } from './map/MemoryPin';
+import { MemoryDetailModal } from './map/MemoryDetailModal';
 import { useMemoryCountsByLandmark } from '@/lib/hooks/useMemoryCountsByLandmark';
+import {
+  useAllMemoriesWithCoordinates,
+  type MemoryWithCoordinates,
+} from '@/lib/hooks/useAllMemoriesWithCoordinates';
 import { LANDMARKS, type Landmark } from '@/lib/constants/landmarks';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -28,11 +34,20 @@ export function MapComponent() {
   const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(
     null
   );
+  const [selectedMemory, setSelectedMemory] =
+    useState<MemoryWithCoordinates | null>(null);
+  const [memoryDetailOpen, setMemoryDetailOpen] = useState(false);
+  const [showLandmarks, setShowLandmarks] = useState(true);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const markerRootsRef = useRef<{ root: Root; landmark: Landmark }[]>([]);
+  const memoryMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const memoryRootsRef = useRef<Root[]>([]);
 
   const { data: countsData } = useMemoryCountsByLandmark();
   const memoryCounts = useMemo(() => countsData?.data ?? {}, [countsData]);
+
+  const { data: memoriesData } = useAllMemoriesWithCoordinates();
+  const memories = useMemo(() => memoriesData?.data ?? [], [memoriesData]);
 
   // Keep a stable ref for the click handler so detached roots always call the latest version
   const handleClickRef = useRef<(landmark: Landmark) => void>(() => {});
@@ -42,6 +57,18 @@ export function MapComponent() {
 
   const handleLandmarkClick = useCallback((landmark: Landmark) => {
     handleClickRef.current(landmark);
+  }, []);
+
+  const handleMemoryClickRef = useRef<(memory: MemoryWithCoordinates) => void>(
+    () => {}
+  );
+  handleMemoryClickRef.current = (memory: MemoryWithCoordinates) => {
+    setSelectedMemory(memory);
+    setMemoryDetailOpen(true);
+  };
+
+  const handleMemoryClick = useCallback((memory: MemoryWithCoordinates) => {
+    handleMemoryClickRef.current(memory);
   }, []);
 
   useEffect(() => {
@@ -66,8 +93,12 @@ export function MapComponent() {
           style: 'mapbox://styles/mapbox/streets-v12',
           center: [123.8986, 10.3224],
           zoom: 17,
-          minZoom: 15,
+          minZoom: 16,
           maxZoom: 22,
+          maxBounds: [
+            [123.89, 10.32],
+            [123.91, 10.33],
+          ],
           attributionControl: false,
         });
 
@@ -100,7 +131,26 @@ export function MapComponent() {
         return () => {
           markersRef.current.forEach((m) => m.remove());
           markersRef.current = [];
+          memoryMarkersRef.current.forEach((m) => m.remove());
+          memoryMarkersRef.current = [];
+
+          // Unmount React roots asynchronously to avoid race condition
+          const rootsToUnmount = [
+            ...markerRootsRef.current,
+            ...memoryRootsRef.current,
+          ];
+          setTimeout(() => {
+            rootsToUnmount.forEach((item) => {
+              if ('root' in item) {
+                item.root.unmount();
+              } else {
+                item.unmount();
+              }
+            });
+          }, 0);
+
           markerRootsRef.current = [];
+          memoryRootsRef.current = [];
           map.remove();
           mapRef.current = null;
         };
@@ -113,7 +163,7 @@ export function MapComponent() {
     }
   }, [handleLandmarkClick]);
 
-  // Re-render marker roots when memory counts update
+  // Re-render marker roots when memory counts update or visibility changes
   useEffect(() => {
     for (const { root, landmark } of markerRootsRef.current) {
       root.render(
@@ -125,6 +175,55 @@ export function MapComponent() {
       );
     }
   }, [memoryCounts, handleLandmarkClick]);
+
+  // Toggle landmark marker visibility
+  useEffect(() => {
+    markersRef.current.forEach((marker) => {
+      const element = marker.getElement();
+      if (element) {
+        element.style.display = showLandmarks ? 'block' : 'none';
+      }
+    });
+  }, [showLandmarks]);
+
+  // Render memory pin markers
+  useEffect(() => {
+    if (!mapRef.current || memories.length === 0) return;
+
+    // Clean up existing memory markers
+    memoryMarkersRef.current.forEach((m) => m.remove());
+    memoryMarkersRef.current = [];
+
+    // Unmount roots asynchronously to avoid race condition
+    const oldRoots = [...memoryRootsRef.current];
+    memoryRootsRef.current = [];
+    setTimeout(() => {
+      oldRoots.forEach((r) => r.unmount());
+    }, 0);
+
+    // Render memory pins
+    memories.forEach((memory) => {
+      if (!memory.mediaURL) return;
+
+      const el = document.createElement('div');
+      const root = createRoot(el);
+      root.render(
+        <MemoryPin
+          src={memory.mediaURL}
+          alt={memory.title}
+          onClick={() => handleMemoryClick(memory)}
+        />
+      );
+
+      memoryRootsRef.current.push(root);
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([memory.location.longitude, memory.location.latitude])
+        .addTo(mapRef.current!);
+
+      memoryMarkersRef.current.push(marker);
+    });
+  }, [memories, handleMemoryClick]);
 
   if (mapError) {
     return (
@@ -166,6 +265,8 @@ export function MapComponent() {
         onPrimaryClick={() => setGroupModalOpen(true)}
         onBatchesClick={() => setBatchesModalOpen(true)}
         onConfigureClick={() => router.push('/admin')}
+        showLandmarks={showLandmarks}
+        onToggleLandmarks={setShowLandmarks}
       />
 
       {/* Group Modal */}
@@ -187,6 +288,13 @@ export function MapComponent() {
           selectedLandmark ? (memoryCounts[selectedLandmark.id] ?? 0) : 0
         }
         onClose={() => setSelectedLandmark(null)}
+      />
+
+      {/* Memory Detail Modal */}
+      <MemoryDetailModal
+        memory={selectedMemory}
+        open={memoryDetailOpen}
+        onOpenChange={setMemoryDetailOpen}
       />
     </div>
   );

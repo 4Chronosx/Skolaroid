@@ -7,18 +7,23 @@ import {
   Layers,
   SlidersHorizontal,
   Users,
+  MapPin,
 } from 'lucide-react';
 
 interface ExpandableToolbarProps {
   onPrimaryClick?: () => void;
   onBatchesClick?: () => void;
   onConfigureClick?: () => void;
+  showLandmarks?: boolean;
+  onToggleLandmarks?: (show: boolean) => void;
 }
 
 export function ExpandableToolbar({
   onPrimaryClick,
   onBatchesClick,
   onConfigureClick,
+  showLandmarks = true,
+  onToggleLandmarks,
 }: ExpandableToolbarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -51,6 +56,17 @@ export function ExpandableToolbar({
               aria-label="Configure"
             >
               <SlidersHorizontal size={20} />
+            </button>
+            <button
+              onClick={() => onToggleLandmarks?.(!showLandmarks)}
+              className={`flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 ${
+                showLandmarks
+                  ? 'bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90'
+                  : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
+              }`}
+              aria-label={showLandmarks ? 'Hide landmarks' : 'Show landmarks'}
+            >
+              <MapPin size={20} />
             </button>
           </>
         )}
