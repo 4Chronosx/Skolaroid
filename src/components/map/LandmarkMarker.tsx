@@ -75,7 +75,7 @@ export const LandmarkMarker = React.forwardRef<
       {memoryCount > 0 && (
         <div
           className={cn(
-            'absolute -right-2 -top-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-md ring-2 ring-white transition-transform duration-200',
+            'absolute -right-1.5 -top-1.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white shadow-md ring-2 ring-white transition-transform duration-200',
             isHovered && 'scale-110'
           )}
         >
@@ -86,21 +86,21 @@ export const LandmarkMarker = React.forwardRef<
       {/* Marker icon container */}
       <div
         className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-full shadow-md ring-2 ring-white transition-all duration-200',
+          'flex h-7 w-7 items-center justify-center rounded-full shadow-md ring-2 ring-white transition-all duration-200',
           bgColor,
           hoverBgColor,
           isHovered && 'scale-125 shadow-lg'
         )}
       >
-        <Icon className="h-4 w-4 text-white" strokeWidth={2.5} />
+        <Icon className="h-3.5 w-3.5 text-white" strokeWidth={2.5} />
       </div>
 
       {/* Pin tail */}
       <div className="flex justify-center">
         <div
           className={cn(
-            'h-2 w-0.5 rounded-b-full bg-gray-700 transition-all duration-200',
-            isHovered && 'h-3'
+            'h-1.5 w-0.5 rounded-b-full bg-gray-700 transition-all duration-200',
+            isHovered && 'h-2.5'
           )}
         />
       </div>

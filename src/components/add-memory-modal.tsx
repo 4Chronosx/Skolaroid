@@ -3,6 +3,7 @@
 import { TagInput } from '@/components/tag-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useCreateMemory } from '@/lib/hooks/useCreateMemory';
@@ -96,6 +97,8 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [hasAgreed, setHasAgreed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { mutate: createMemory, isPending } = useCreateMemory();
@@ -253,6 +256,8 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
     setCurrentStep('upload');
     setFormData(INITIAL_FORM_DATA);
     setErrors({});
+    setShowConfirmation(false);
+    setHasAgreed(false);
   }, [onOpenChange, formData.mediaPreviewUrl]);
 
   // ---------------------------------------------------------------------------
@@ -275,7 +280,15 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
       return;
     }
 
-    // TODO: programBatchId should come from the authenticated user's session
+    setShowConfirmation(true);
+  }, [buildSchemaInput]);
+
+  const handleConfirmedSubmit = useCallback(() => {
+    if (!hasAgreed) return;
+
+    const parsed = createMemorySchema.safeParse(buildSchemaInput());
+    if (!parsed.success) return;
+
     const MOCK_PROGRAM_BATCH_ID = '00000000-0000-0000-0000-000000000001';
 
     createMemory(
@@ -286,7 +299,7 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
         },
       }
     );
-  }, [buildSchemaInput, createMemory, handleCancel]);
+  }, [buildSchemaInput, createMemory, handleCancel, hasAgreed]);
 
   // ---------------------------------------------------------------------------
   // Step renderers
@@ -519,87 +532,176 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   const isLastStep = currentStep === 'preview';
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) handleCancel();
-        else onOpenChange(true);
-      }}
-    >
-      <DialogContent
-        className="flex h-[500px] max-w-2xl gap-0 overflow-hidden p-0"
-        showCloseButton={false}
+    <>
+      {/* Confirmation Modal */}
+      <Dialog
+        open={showConfirmation}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setShowConfirmation(false);
+            setHasAgreed(false);
+          }
+        }}
       >
-        {/* Tabs Sidebar */}
-        <div className="flex w-48 flex-col border-r bg-gray-50">
-          <div className="flex-1 p-6">
-            <DialogTitle className="sr-only">Add Memory</DialogTitle>
-            <div className="space-y-4">
-              {STEPS.map((step, index) => {
-                const meta = STEP_META[step];
-                const Icon = meta.icon;
-                const isActive = currentStep === step;
-                const isAccessible = index <= currentStepIndex;
+        <DialogContent className="max-w-md">
+          <DialogTitle className="text-xl font-semibold text-gray-900">
+            Confirm Submission
+          </DialogTitle>
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <p className="text-sm leading-relaxed text-gray-700">
+                By submitting this content, you confirm that:
+              </p>
+              <ul className="mt-3 space-y-2 text-sm text-gray-700">
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-skolaroid-blue">•</span>
+                  <span>You have the legal right to share this content</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-skolaroid-blue">•</span>
+                  <span>
+                    The content does not infringe on any intellectual property
+                    rights
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-skolaroid-blue">•</span>
+                  <span>
+                    You agree to our content policy and community guidelines
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-skolaroid-blue">•</span>
+                  <span>
+                    The content is appropriate and does not violate any laws or
+                    regulations
+                  </span>
+                </li>
+              </ul>
+            </div>
 
-                return (
-                  <button
-                    key={step}
-                    onClick={() => isAccessible && setCurrentStep(step)}
-                    disabled={!isAccessible}
-                    className={`flex w-full items-center gap-2 text-left text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'text-skolaroid-blue'
-                        : isAccessible
-                          ? 'text-gray-500 hover:text-gray-700'
-                          : 'cursor-not-allowed text-gray-300'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {meta.label}
-                  </button>
-                );
-              })}
+            <div className="flex items-start gap-3 rounded-lg border-2 border-gray-300 p-4">
+              <Checkbox
+                id="agree-terms"
+                checked={hasAgreed}
+                onCheckedChange={(checked) => setHasAgreed(checked === true)}
+                className="mt-0.5"
+              />
+              <label
+                htmlFor="agree-terms"
+                className="cursor-pointer text-sm font-medium leading-relaxed text-gray-900"
+              >
+                I confirm that I have read and agree to all of the above terms
+                and conditions
+              </label>
             </div>
           </div>
-        </div>
 
-        {/* Divider Line */}
-        <div className="w-px bg-gray-200" />
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowConfirmation(false);
+                setHasAgreed(false);
+              }}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmedSubmit}
+              disabled={!hasAgreed || isPending}
+              className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
+            >
+              {isPending ? 'Submitting...' : 'Confirm & Submit'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        {/* Content Area */}
-        <div className="flex flex-1 flex-col">
-          <div className="flex-1 overflow-y-auto p-6">
-            {STEP_RENDERERS[currentStep]()}
+      {/* Main Add Memory Modal */}
+      <Dialog
+        open={open && !showConfirmation}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) handleCancel();
+          else onOpenChange(true);
+        }}
+      >
+        <DialogContent
+          className="flex h-[500px] max-w-2xl gap-0 overflow-hidden p-0"
+          showCloseButton={false}
+        >
+          {/* Tabs Sidebar */}
+          <div className="flex w-48 flex-col border-r bg-gray-50">
+            <div className="flex-1 p-6">
+              <DialogTitle className="sr-only">Add Memory</DialogTitle>
+              <div className="space-y-4">
+                {STEPS.map((step, index) => {
+                  const meta = STEP_META[step];
+                  const Icon = meta.icon;
+                  const isActive = currentStep === step;
+                  const isAccessible = index <= currentStepIndex;
+
+                  return (
+                    <button
+                      key={step}
+                      onClick={() => isAccessible && setCurrentStep(step)}
+                      disabled={!isAccessible}
+                      className={`flex w-full items-center gap-2 text-left text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'text-skolaroid-blue'
+                          : isAccessible
+                            ? 'text-gray-500 hover:text-gray-700'
+                            : 'cursor-not-allowed text-gray-300'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {meta.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex justify-between border-t bg-white px-6 py-4">
-            <div>
-              {currentStepIndex > 0 && (
-                <Button variant="ghost" onClick={handleBack}>
-                  Back
+          {/* Divider Line */}
+          <div className="w-px bg-gray-200" />
+
+          {/* Content Area */}
+          <div className="flex flex-1 flex-col">
+            <div className="flex-1 overflow-y-auto p-6">
+              {STEP_RENDERERS[currentStep]()}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-between border-t bg-white px-6 py-4">
+              <div>
+                {currentStepIndex > 0 && (
+                  <Button variant="ghost" onClick={handleBack}>
+                    Back
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleCancel}
+                  className="text-gray-700"
+                >
+                  Cancel
                 </Button>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                className="text-gray-700"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={isLastStep ? handleSubmit : handleNext}
-                disabled={isPending}
-                className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
-              >
-                {isPending ? 'Submitting...' : isLastStep ? 'Submit' : 'Next'}
-              </Button>
+                <Button
+                  onClick={isLastStep ? handleSubmit : handleNext}
+                  disabled={isPending}
+                  className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
+                >
+                  {isPending ? 'Submitting...' : isLastStep ? 'Submit' : 'Next'}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
