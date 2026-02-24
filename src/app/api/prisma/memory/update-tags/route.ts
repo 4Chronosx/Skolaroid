@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateMemoryTagsSchema } from '@/lib/schemas';
 import { slugify } from '@/lib/slugify';
+import { prisma } from '@/lib/prisma';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -17,30 +18,24 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // TODO: Replace with real Prisma query once SCRUM-54 is complete:
-    // const updated = await prisma.memory.update({
-    //   where: { id: result.data.memoryId },
-    //   data: {
-    //     tags: {
-    //       set: [],
-    //       connectOrCreate: result.data.tags.map((name) => ({
-    //         where: { slug: slugify(name) },
-    //         create: { name, slug: slugify(name) },
-    //       })),
-    //     },
-    //   },
-    //   include: { tags: true },
-    // });
-    const mockTags = result.data.tags.map((name) => ({
-      id: crypto.randomUUID(),
-      name,
-      slug: slugify(name),
-    }));
+    const updated = await prisma.memory.update({
+      where: { id: result.data.memoryId },
+      data: {
+        tags: {
+          set: [],
+          connectOrCreate: result.data.tags.map((name) => ({
+            where: { slug: slugify(name) },
+            create: { name, slug: slugify(name) },
+          })),
+        },
+      },
+      include: { tags: true },
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Tags updated successfully',
-      data: { memoryId: result.data.memoryId, tags: mockTags },
+      data: { memoryId: updated.id, tags: updated.tags },
     });
   } catch {
     return NextResponse.json(

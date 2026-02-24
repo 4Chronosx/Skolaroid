@@ -18,19 +18,24 @@ export function useCreateMemory() {
   return useMutation({
     retry: 1,
     mutationFn: async (data: CreateMemoryServerInput) => {
+      console.log('[useCreateMemory] sending request', data);
       const res = await fetch('/api/prisma/memory/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
+      console.log('[useCreateMemory] response status', res.status);
+      const text = await res.text();
+      console.log('[useCreateMemory] response body', text);
       if (!res.ok) {
-        const errorBody = await res.json().catch(() => ({}));
-        throw new Error(
-          (errorBody as { message?: string }).message ??
-            'Failed to create memory'
-        );
+        let errorMessage = 'Failed to create memory';
+        try {
+          const errorBody = JSON.parse(text);
+          errorMessage = errorBody.message || errorMessage;
+        } catch {}
+        throw new Error(errorMessage);
       }
-      return res.json() as Promise<CreateMemoryResponse>;
+      return JSON.parse(text) as CreateMemoryResponse;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['memories'] });
