@@ -51,6 +51,7 @@ export function MapComponent() {
 
   // Keep a stable ref for the click handler so detached roots always call the latest version
   const handleClickRef = useRef<(landmark: Landmark) => void>(() => {});
+  // eslint-disable-next-line react-hooks/refs
   handleClickRef.current = (landmark: Landmark) => {
     setSelectedLandmark(landmark);
   };

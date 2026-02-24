@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useCreateMemory } from '@/lib/hooks/useCreateMemory';
-import { MOCK_LOCATIONS } from '@/lib/mock-data';
+import { useLocations } from '@/lib/hooks/useLocations';
 import {
   createMemorySchema,
   MAX_TAGS,
@@ -102,6 +102,11 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { mutate: createMemory, isPending } = useCreateMemory();
+  const { data: locationsData, isLoading: locationsLoading } = useLocations();
+  const locations = useMemo(
+    () => locationsData?.data ?? [],
+    [locationsData?.data]
+  );
 
   const currentStepIndex = STEPS.indexOf(currentStep);
 
@@ -136,8 +141,8 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   );
 
   const selectedLocation = useMemo(
-    () => MOCK_LOCATIONS.find((loc) => loc.id === formData.locationId),
-    [formData.locationId]
+    () => locations.find((loc) => loc.id === formData.locationId),
+    [locations, formData.locationId]
   );
 
   /** Build the input shape expected by createMemorySchema from current form state. */
@@ -236,11 +241,17 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   // ---------------------------------------------------------------------------
 
   const handleNext = useCallback(() => {
+    console.log(
+      '[AddMemoryModal] attempting to go to next step from',
+      currentStep
+    );
     if (!validateCurrentStep()) return;
     if (currentStepIndex < STEPS.length - 1) {
-      setCurrentStep(STEPS[currentStepIndex + 1]);
+      const next = STEPS[currentStepIndex + 1];
+      console.log('[AddMemoryModal] stepping to', next);
+      setCurrentStep(next);
     }
-  }, [validateCurrentStep, currentStepIndex]);
+  }, [validateCurrentStep, currentStepIndex, currentStep]);
 
   const handleBack = useCallback(() => {
     if (currentStepIndex > 0) {
@@ -265,6 +276,10 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
   // ---------------------------------------------------------------------------
 
   const handleSubmit = useCallback(() => {
+    console.log(
+      '[AddMemoryModal] handleSubmit triggered, current data:',
+      buildSchemaInput()
+    );
     const parsed = createMemorySchema.safeParse(buildSchemaInput());
 
     if (!parsed.success) {
@@ -297,6 +312,7 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
         onSuccess: () => {
           handleCancel();
         },
+        onError: (err) => console.error('create failed', err),
       }
     );
   }, [buildSchemaInput, createMemory, handleCancel, hasAgreed]);
@@ -358,7 +374,10 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
         <p className="text-sm text-red-500">{errors.locationId}</p>
       )}
       <div className="space-y-2">
-        {MOCK_LOCATIONS.map((location) => (
+        {locationsLoading && (
+          <p className="text-sm text-gray-400">Loading landmarks…</p>
+        )}
+        {locations.map((location) => (
           <button
             key={location.id}
             type="button"

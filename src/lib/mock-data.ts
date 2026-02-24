@@ -4,35 +4,35 @@
  */
 export const MOCK_LOCATIONS = [
   {
-    id: '00000000-0000-0000-0000-000000000001',
+    id: '10000000-0000-4000-8000-000000000001',
     buildingName: 'Oblation Plaza',
     description: 'Main entrance and iconic landmark',
     latitude: 10.3224,
     longitude: 123.898,
   },
   {
-    id: '00000000-0000-0000-0000-000000000002',
+    id: '10000000-0000-4000-8000-000000000002',
     buildingName: 'UP Main Library',
     description: 'Gonzalez Hall — central library',
     latitude: 10.323,
     longitude: 123.8986,
   },
   {
-    id: '00000000-0000-0000-0000-000000000003',
+    id: '10000000-0000-4000-8000-000000000003',
     buildingName: 'AS Steps',
     description: 'College of Arts and Sciences amphitheater steps',
     latitude: 10.3218,
     longitude: 123.8992,
   },
   {
-    id: '00000000-0000-0000-0000-000000000004',
+    id: '10000000-0000-4000-8000-000000000004',
     buildingName: 'Sunken Garden',
     description: 'Open field for events and gatherings',
     latitude: 10.3235,
     longitude: 123.8975,
   },
   {
-    id: '00000000-0000-0000-0000-000000000005',
+    id: '10000000-0000-4000-8000-000000000005',
     buildingName: 'College of Engineering',
     description: 'Melchor Hall and surrounding buildings',
     latitude: 10.321,

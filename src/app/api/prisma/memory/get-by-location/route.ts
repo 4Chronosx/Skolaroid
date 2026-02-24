@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { memoriesByLocationQuerySchema } from '@/lib/schemas';
-import { MOCK_MEMORIES } from '@/lib/mock-data';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,30 +19,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Replace mock filter with real Prisma query once SCRUM-54 is complete:
-    // const memories = await prisma.memory.findMany({
-    //   where: {
-    //     locationId: result.data.locationId,
-    //     isArchived: false,
-    //     deletedAt: null,
-    //   },
-    //   include: {
-    //     tags: true,
-    //     location: { select: { id: true, buildingName: true } },
-    //     _count: { select: { votes: true } },
-    //   },
-    //   orderBy: { createdAt: 'desc' },
-    // });
-    const memories = MOCK_MEMORIES.filter(
-      (m) => m.locationId === result.data.locationId
-    );
+    const memories = await prisma.memory.findMany({
+      where: {
+        locationId: result.data.locationId,
+        deletedAt: null,
+      },
+      include: {
+        tags: true,
+        location: { select: { id: true, buildingName: true } },
+        _count: { select: { votes: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Memories fetched successfully',
       data: memories,
     });
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/prisma/memory/get-by-location]', err);
     return NextResponse.json(
       {
         success: false,

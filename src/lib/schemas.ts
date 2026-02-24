@@ -63,7 +63,7 @@ export const createMemorySchema = z.object({
     .max(5000, 'Description is too long')
     .optional(),
   visibility: memoryVisibilityEnum.default('PUBLIC'),
-  locationId: z.string().uuid('Invalid location'),
+  locationId: z.string().min(1, 'Location is required'), // change to uuid later
   tags: z
     .array(z.string().trim().min(1).max(50))
     .max(MAX_TAGS, 'Maximum 10 tags')
@@ -72,7 +72,7 @@ export const createMemorySchema = z.object({
 
 /** Server-side schema — same fields sent over the wire (no File objects). */
 export const createMemoryServerSchema = createMemorySchema.extend({
-  programBatchId: z.string().uuid('Invalid program batch'),
+  programBatchId: z.string().min(1, 'Program batch is required'), // change to uuid later
 });
 
 /** Schema for updating tags on an existing memory. */
