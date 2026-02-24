@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { useUserAuth } from '@/hooks/useUserAuth';
+import { useOnboardUser } from '@/lib/hooks/useOnboardUser';
 import { Header } from '@/components/header';
 import { BatchSelectorModal } from '@/components/onboarding/batch-selector-modal';
 import { CourseSelectorModal } from '@/components/onboarding/course-selector-modal';
@@ -18,6 +19,12 @@ interface OnboardingStep {
 export default function OnboardingPage() {
   const router = useRouter();
   const { markOnboardingComplete } = useUserAuth();
+  const onboardUser = useOnboardUser();
+
+  const [selectedBatch, setSelectedBatch] = useState<number | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [onboardError, setOnboardError] = useState<string | null>(null);
+
   const [steps, setSteps] = useState<OnboardingStep[]>([
     {
       id: 'verify',
@@ -54,7 +61,8 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleBatchSelect = () => {
+  const handleBatchSelect = (batch: number) => {
+    setSelectedBatch(batch);
     setSteps(
       steps.map((step) =>
         step.id === 'batch' ? { ...step, completed: true } : step
@@ -62,7 +70,8 @@ export default function OnboardingPage() {
     );
   };
 
-  const handleCourseSelect = () => {
+  const handleCourseSelect = (course: string) => {
+    setSelectedCourse(course);
     setSteps(
       steps.map((step) =>
         step.id === 'course' ? { ...step, completed: true } : step
@@ -143,6 +152,10 @@ export default function OnboardingPage() {
             {completedCount} of {steps.length} steps completed
           </div>
 
+          {onboardError && (
+            <p className="mt-2 text-xs text-red-600">{onboardError}</p>
+          )}
+
           {/* Footer Actions */}
           <div className="mt-4 flex flex-shrink-0 items-center justify-between border-t border-gray-200 pt-4">
             <a
@@ -159,18 +172,32 @@ export default function OnboardingPage() {
                 Back
               </button>
               <button
-                disabled={!allCompleted}
-                onClick={() => {
-                  markOnboardingComplete();
-                  router.push('/');
+                disabled={!allCompleted || onboardUser.isPending}
+                onClick={async () => {
+                  if (!selectedBatch || !selectedCourse) return;
+                  setOnboardError(null);
+                  try {
+                    await onboardUser.mutateAsync({
+                      batchYear: selectedBatch,
+                      programName: selectedCourse,
+                    });
+                    markOnboardingComplete();
+                    router.push('/');
+                  } catch (err) {
+                    setOnboardError(
+                      err instanceof Error
+                        ? err.message
+                        : 'Something went wrong'
+                    );
+                  }
                 }}
                 className={`rounded-lg px-4 py-1.5 text-xs font-medium text-white transition ${
-                  allCompleted
+                  allCompleted && !onboardUser.isPending
                     ? 'cursor-pointer bg-skolaroid-blue hover:bg-blue-700'
                     : 'cursor-not-allowed bg-gray-300 opacity-50'
                 }`}
               >
-                Next Step
+                {onboardUser.isPending ? 'Creating account...' : 'Next Step'}
               </button>
             </div>
           </div>
