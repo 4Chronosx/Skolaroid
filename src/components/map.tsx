@@ -1,7 +1,14 @@
 'use client';
 
 import mapboxgl from 'mapbox-gl';
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { createRoot, type Root } from 'react-dom/client';
 import { Plus } from 'lucide-react';
@@ -27,7 +34,12 @@ export function MapComponent() {
   const router = useRouter();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const [mapError, setMapError] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(() => {
+    if (!MAPBOX_TOKEN) return 'Mapbox token not configured';
+    if (!mapboxgl.supported())
+      return 'WebGL is not supported on this browser. Please use a modern browser with WebGL support.';
+    return null;
+  });
   const [addMemoryOpen, setAddMemoryOpen] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [batchesModalOpen, setBatchesModalOpen] = useState(false);
@@ -51,9 +63,11 @@ export function MapComponent() {
 
   // Keep a stable ref for the click handler so detached roots always call the latest version
   const handleClickRef = useRef<(landmark: Landmark) => void>(() => {});
-  handleClickRef.current = (landmark: Landmark) => {
-    setSelectedLandmark(landmark);
-  };
+  useLayoutEffect(() => {
+    handleClickRef.current = (landmark: Landmark) => {
+      setSelectedLandmark(landmark);
+    };
+  });
 
   const handleLandmarkClick = useCallback((landmark: Landmark) => {
     handleClickRef.current(landmark);
@@ -62,10 +76,12 @@ export function MapComponent() {
   const handleMemoryClickRef = useRef<(memory: MemoryWithCoordinates) => void>(
     () => {}
   );
-  handleMemoryClickRef.current = (memory: MemoryWithCoordinates) => {
-    setSelectedMemory(memory);
-    setMemoryDetailOpen(true);
-  };
+  useLayoutEffect(() => {
+    handleMemoryClickRef.current = (memory: MemoryWithCoordinates) => {
+      setSelectedMemory(memory);
+      setMemoryDetailOpen(true);
+    };
+  });
 
   const handleMemoryClick = useCallback((memory: MemoryWithCoordinates) => {
     handleMemoryClickRef.current(memory);
@@ -73,19 +89,11 @@ export function MapComponent() {
 
   useEffect(() => {
     if (!MAPBOX_TOKEN) {
-      setMapError('Mapbox token not configured');
       return;
     }
 
     if (mapContainerRef.current && !mapRef.current) {
       try {
-        if (!mapboxgl.supported()) {
-          setMapError(
-            'WebGL is not supported on this browser. Please use a modern browser with WebGL support.'
-          );
-          return;
-        }
-
         mapboxgl.accessToken = MAPBOX_TOKEN;
 
         const map = new mapboxgl.Map({
@@ -156,9 +164,11 @@ export function MapComponent() {
         };
       } catch (error) {
         console.error('Failed to initialize map:', error);
-        setMapError(
-          'Failed to initialize map. Please refresh the page or try a different browser.'
-        );
+        setTimeout(() => {
+          setMapError(
+            'Failed to initialize map. Please refresh the page or try a different browser.'
+          );
+        }, 0);
       }
     }
   }, [handleLandmarkClick]);
