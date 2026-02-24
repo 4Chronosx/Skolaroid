@@ -52,3 +52,6 @@ next-env.d.ts
 .layouts
 
 .github\copilot-instructions.md
+
+# claude
+.claude
