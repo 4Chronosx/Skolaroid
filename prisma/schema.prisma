@@ -40,12 +40,12 @@ enum MemoryVisibility {
 
 model User {
   id             String   @id @default(uuid()) @db.Uuid // reference to auth.id
-  studentId      String   @unique @db.VarChar(50)
+  studentId      String?  @unique @db.VarChar(50)
   email          String   @unique @db.VarChar(255)
-  firstName      String   @db.VarChar(100)
-  lastName       String   @db.VarChar(100)
-  programBatchId String   @db.Uuid
-  programBatch   ProgramBatch @relation(fields: [programBatchId], references: [id], onDelete: Restrict)
+  firstName      String?  @db.VarChar(100)
+  lastName       String?  @db.VarChar(100)
+  programBatchId String?  @db.Uuid
+  programBatch   ProgramBatch? @relation(fields: [programBatchId], references: [id], onDelete: Restrict)
   
   // Relations
   memories       Memory[]

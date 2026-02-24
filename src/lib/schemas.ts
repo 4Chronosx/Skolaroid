@@ -99,6 +99,18 @@ export type CreateMemoryServerInput = z.infer<typeof createMemoryServerSchema>;
 export type UpdateMemoryTagsInput = z.infer<typeof updateMemoryTagsSchema>;
 
 // ============================================================================
+// ONBOARDING / USER CREATION SCHEMAS
+// ============================================================================
+
+/** Payload sent by the onboarding page to create the User row. */
+export const onboardUserSchema = z.object({
+  batchYear: z.number().int().min(2000).max(new Date().getFullYear()),
+  programName: z.string().trim().min(1, 'Program is required'),
+});
+
+export type OnboardUserInput = z.infer<typeof onboardUserSchema>;
+
+// ============================================================================
 // SHARED TYPES
 // ============================================================================
 
