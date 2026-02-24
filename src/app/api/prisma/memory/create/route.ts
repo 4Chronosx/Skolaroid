@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMemoryServerSchema } from '@/lib/schemas';
 import { createMemoryService } from '@/services/create-memory-service';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { prisma } from '@/lib/prisma';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -17,45 +18,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // DEV ONLY: use service-role key to bypass RLS and grab the first seeded user
-    const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    // DEV ONLY: look up seed user directly via Prisma so the id is guaranteed
+    // to match the User FK in Memory.
+    const seedUser = await prisma.user.findUnique({
+      where: { email: 'seed@skolaroid.dev' },
+      select: { id: true },
+    });
 
-    const { data: seedUser, error: userError } = await supabase
-      .from('User')
-      .select('id')
-      .order('createdAt', { ascending: true })
-      .limit(1)
-      .single();
-
-    if (userError || !seedUser) {
-      console.error('Failed to retrieve seed user:', userError);
+    if (!seedUser) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Failed to retrieve seed user',
-          detail: userError?.message ?? 'no data returned',
-          code: userError?.code,
+          message: 'Seed user not found – run `npx prisma db seed`',
         },
         { status: 500 }
       );
     }
 
-    const authId = seedUser.id;
-    if (!authId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Not authenticated',
-        },
-        { status: 401 }
-      );
-    }
-
-    const memory = await createMemoryService(result.data, authId);
+    const memory = await createMemoryService(result.data, seedUser.id);
     return NextResponse.json({
       success: true,
       message: 'Memory created successfully',
