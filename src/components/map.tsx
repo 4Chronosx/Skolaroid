@@ -338,6 +338,33 @@ export function MapComponent() {
         memory={selectedMemory}
         open={memoryDetailOpen}
         onOpenChange={setMemoryDetailOpen}
+        hasPrevious={
+          selectedMemory
+            ? memories.findIndex((m) => m.id === selectedMemory.id) > 0
+            : false
+        }
+        hasNext={
+          selectedMemory
+            ? memories.findIndex((m) => m.id === selectedMemory.id) <
+              memories.length - 1
+            : false
+        }
+        onPrevious={() => {
+          if (selectedMemory) {
+            const currentIndex = memories.findIndex(
+              (m) => m.id === selectedMemory.id
+            );
+            setSelectedMemory(memories[currentIndex - 1]);
+          }
+        }}
+        onNext={() => {
+          if (selectedMemory) {
+            const currentIndex = memories.findIndex(
+              (m) => m.id === selectedMemory.id
+            );
+            setSelectedMemory(memories[currentIndex + 1]);
+          }
+        }}
       />
     </div>
   );
