@@ -5,13 +5,13 @@
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-<a href="https://github.com/4Chronosx/Skolaroid/blob/main/LICENSE">
+<a href="https://github.com/kiloumanjaro/Skolaroid/blob/main/LICENSE">
 <img alt="License" src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" />
 </a>
 
 <div align="center">
   <br />
-  <a href="https://github.com/4Chronosx/Skolaroid">
+  <a href="https://github.com/kiloumanjaro/Skolaroid">
     <img src="public/images/logo.png" alt="Logo" width="20%" height="20%">
   </a>
   <br />
@@ -23,11 +23,11 @@
     <p align="center">
       <a href="#"><img alt="Status" src="https://img.shields.io/badge/status-Development-yellow?style=flat&color=yellow" /></a>
       <a href="https://nextjs.org/"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-15.3.1-2B2B2B?logo=nextdotjs&logoColor=white&style=flat" /></a>
-      <a href="https://github.com/4Chronosx/Skolaroid/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/4Chronosx/Skolaroid?color=coral&logo=git&logoColor=white" /></a>
+      <a href="https://github.com/kiloumanjaro/Skolaroid/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/kiloumanjaro/Skolaroid?color=coral&logo=git&logoColor=white" /></a>
   </p>
-  <a href="https://github.com/4Chronosx/Skolaroid/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+  <a href="https://github.com/kiloumanjaro/Skolaroid/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
   &middot;
-  <a href="https://github.com/4Chronosx/Skolaroid/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+  <a href="https://github.com/kiloumanjaro/Skolaroid/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
 </div>
 
 <!-- TABLE OF CONTENTS -->
@@ -115,7 +115,7 @@ Follow these steps to set up and run **Skolaroid** locally.
 #### 1. Clone the Repository
 
 ```sh
-git clone https://github.com/4Chronosx/Skolaroid.git
+git clone https://github.com/kiloumanjaro/Skolaroid.git
 cd Skolaroid
 ```
 
@@ -190,8 +190,8 @@ Contributions are welcome! If you have suggestions to improve Skolaroid, please 
 
 ### 📢 Contributors
 
-<a href="https://github.com/4Chronosx/Skolaroid/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=4Chronosx/Skolaroid" alt="contrib.rocks image" />
+<a href="https://github.com/kiloumanjaro/Skolaroid/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=kiloumanjaro/Skolaroid" alt="contrib.rocks image" />
 </a>
 
 ### 🔎 Project Structure
@@ -240,11 +240,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 
-[contributors-shield]: https://img.shields.io/github/contributors/4Chronosx/Skolaroid.svg?style=for-the-badge
-[contributors-url]: https://github.com/4Chronosx/Skolaroid/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/4Chronosx/Skolaroid.svg?style=for-the-badge
-[forks-url]: https://github.com/4Chronosx/Skolaroid/network/members
-[stars-shield]: https://img.shields.io/github/stars/4Chronosx/Skolaroid.svg?style=for-the-badge
-[stars-url]: https://github.com/4Chronosx/Skolaroid/stargazers
-[issues-shield]: https://img.shields.io/github/issues/4Chronosx/Skolaroid.svg?style=for-the-badge
-[issues-url]: https://github.com/4Chronosx/Skolaroid/issues
+[contributors-shield]: https://img.shields.io/github/contributors/kiloumanjaro/Skolaroid.svg?style=for-the-badge
+[contributors-url]: https://github.com/kiloumanjaro/Skolaroid/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/kiloumanjaro/Skolaroid.svg?style=for-the-badge
+[forks-url]: https://github.com/kiloumanjaro/Skolaroid/network/members
+[stars-shield]: https://img.shields.io/github/stars/kiloumanjaro/Skolaroid.svg?style=for-the-badge
+[stars-url]: https://github.com/kiloumanjaro/Skolaroid/stargazers
+[issues-shield]: https://img.shields.io/github/issues/kiloumanjaro/Skolaroid.svg?style=for-the-badge
+[issues-url]: https://github.com/kiloumanjaro/Skolaroid/issues
