@@ -29,17 +29,12 @@ export function Header() {
           {!loading && isAuthenticated ? (
             <AccountMenu />
           ) : (
-            <>
-              <Button variant="ghost" asChild className="text-xs">
-                <Link href="/">Log In</Link>
-              </Button>
-              <Button
-                asChild
-                className="bg-skolaroid-blue text-xs hover:bg-skolaroid-blue/90"
-              >
-                <Link href="/">Sign Up</Link>
-              </Button>
-            </>
+            <Button
+              asChild
+              className="bg-skolaroid-blue text-xs hover:bg-skolaroid-blue/90"
+            >
+              <Link href="/">Log In</Link>
+            </Button>
           )}
         </div>
       </div>

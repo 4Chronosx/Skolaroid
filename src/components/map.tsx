@@ -1,13 +1,18 @@
 'use client';
 
 import mapboxgl from 'mapbox-gl';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { createRoot, type Root } from 'react-dom/client';
 import { Plus } from 'lucide-react';
 import { AddMemoryModal } from './add-memory-modal';
 import { GroupModal } from './group-modal';
 import { BatchesModal } from './batches-modal';
 import { ExpandableToolbar } from './expandable-toolbar';
+import { LandmarkMarker } from './map/LandmarkMarker';
+import { LandmarkMemoriesPanel } from './map/LandmarkMemoriesPanel';
+import { useMemoryCountsByLandmark } from '@/lib/hooks/useMemoryCountsByLandmark';
+import { LANDMARKS, type Landmark } from '@/lib/constants/landmarks';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -20,6 +25,25 @@ export function MapComponent() {
   const [addMemoryOpen, setAddMemoryOpen] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [batchesModalOpen, setBatchesModalOpen] = useState(false);
+  const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(
+    null
+  );
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const markerRootsRef = useRef<{ root: Root; landmark: Landmark }[]>([]);
+
+  const { data: countsData } = useMemoryCountsByLandmark();
+  const memoryCounts = useMemo(() => countsData?.data ?? {}, [countsData]);
+
+  // Keep a stable ref for the click handler so detached roots always call the latest version
+  const handleClickRef = useRef<(landmark: Landmark) => void>(() => {});
+  // eslint-disable-next-line react-hooks/refs
+  handleClickRef.current = (landmark: Landmark) => {
+    setSelectedLandmark(landmark);
+  };
+
+  const handleLandmarkClick = useCallback((landmark: Landmark) => {
+    handleClickRef.current(landmark);
+  }, []);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN) {
@@ -40,36 +64,11 @@ export function MapComponent() {
 
         const map = new mapboxgl.Map({
           container: mapContainerRef.current,
-          style: {
-            version: 8,
-            sources: {
-              'custom-map': {
-                type: 'image',
-                url: '/assets/images/temporary_map.png',
-                coordinates: [
-                  [-80, 50],
-                  [-60, 50],
-                  [-60, 30],
-                  [-80, 30],
-                ],
-              },
-            },
-            layers: [
-              {
-                id: 'background',
-                type: 'background',
-                paint: { 'background-color': '#f0f0f0' },
-              },
-              {
-                id: 'custom-map-layer',
-                type: 'raster',
-                source: 'custom-map',
-                paint: { 'raster-opacity': 1 },
-              },
-            ],
-          },
-          center: [-70, 40],
-          zoom: 5,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: [123.8986, 10.3224],
+          zoom: 17,
+          minZoom: 15,
+          maxZoom: 22,
           attributionControl: false,
         });
 
@@ -78,7 +77,31 @@ export function MapComponent() {
         map.addControl(new mapboxgl.NavigationControl(), 'top-left');
         map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
 
+        // Render landmark markers
+        LANDMARKS.forEach((landmark) => {
+          const el = document.createElement('div');
+          const root = createRoot(el);
+          root.render(
+            <LandmarkMarker
+              landmark={landmark}
+              memoryCount={0}
+              onClick={handleLandmarkClick}
+            />
+          );
+
+          markerRootsRef.current.push({ root, landmark });
+
+          const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+            .setLngLat(landmark.coordinates)
+            .addTo(map);
+
+          markersRef.current.push(marker);
+        });
+
         return () => {
+          markersRef.current.forEach((m) => m.remove());
+          markersRef.current = [];
+          markerRootsRef.current = [];
           map.remove();
           mapRef.current = null;
         };
@@ -89,7 +112,20 @@ export function MapComponent() {
         );
       }
     }
-  }, []);
+  }, [handleLandmarkClick]);
+
+  // Re-render marker roots when memory counts update
+  useEffect(() => {
+    for (const { root, landmark } of markerRootsRef.current) {
+      root.render(
+        <LandmarkMarker
+          landmark={landmark}
+          memoryCount={memoryCounts[landmark.id] ?? 0}
+          onClick={handleLandmarkClick}
+        />
+      );
+    }
+  }, [memoryCounts, handleLandmarkClick]);
 
   if (mapError) {
     return (
@@ -144,6 +180,15 @@ export function MapComponent() {
 
       {/* Add Memory Modal */}
       <AddMemoryModal open={addMemoryOpen} onOpenChange={setAddMemoryOpen} />
+
+      {/* Landmark Memories Panel */}
+      <LandmarkMemoriesPanel
+        landmark={selectedLandmark}
+        memoryCount={
+          selectedLandmark ? (memoryCounts[selectedLandmark.id] ?? 0) : 0
+        }
+        onClose={() => setSelectedLandmark(null)}
+      />
     </div>
   );
 }

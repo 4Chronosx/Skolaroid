@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronRight, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
@@ -16,16 +16,14 @@ export function BatchSelectorModal({
   onSelect,
 }: BatchSelectorModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [batches, setBatches] = useState<number[]>([]);
 
-  useEffect(() => {
+  const batches = useMemo(() => {
     // Generate batches from 2000 to current year
     const currentYear = new Date().getFullYear();
-    const generatedBatches = Array.from(
+    return Array.from(
       { length: currentYear - 2000 + 1 },
       (_, i) => 2000 + i
     ).reverse();
-    setBatches(generatedBatches);
   }, []);
 
   const filteredBatches = batches.filter((batch) =>

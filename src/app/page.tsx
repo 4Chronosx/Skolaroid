@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
 import { BatchCard } from '@/components/batch-card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { LoginForm } from '@/components/login-form';
-import { SignUpForm } from '@/components/sign-up-form';
 import { useUserAuth } from '@/hooks/useUserAuth';
 import { AccountMenu } from '@/components/account-menu';
 
@@ -63,7 +61,6 @@ export default function Home() {
   const { isAuthenticated, loading } = useUserAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [signUpOpen, setSignUpOpen] = useState(false);
   const drawerContentRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startY, setStartY] = useState(0);
@@ -110,22 +107,10 @@ export default function Home() {
           <>
             <button
               onClick={() => setLoginOpen(true)}
-              className="px-3 py-2 text-xs transition hover:opacity-70"
+              className="rounded-md bg-skolaroid-blue px-4 py-2 text-xs text-white transition hover:bg-blue-700"
             >
               Log In
             </button>
-            <button
-              onClick={() => setSignUpOpen(true)}
-              className="rounded-md bg-skolaroid-blue px-4 py-2 text-xs text-white transition hover:bg-blue-700"
-            >
-              Sign Up
-            </button>
-            <Link
-              href="/onboarding"
-              className="px-3 py-2 text-xs text-gray-600 underline transition hover:text-gray-900"
-            >
-              Skip
-            </Link>
           </>
         )}
       </div>
@@ -134,25 +119,7 @@ export default function Home() {
       <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogTitle className="sr-only">Login</DialogTitle>
-          <LoginForm
-            onSwitchToSignUp={() => {
-              setLoginOpen(false);
-              setSignUpOpen(true);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Sign Up Modal */}
-      <Dialog open={signUpOpen} onOpenChange={setSignUpOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogTitle className="sr-only">Sign Up</DialogTitle>
-          <SignUpForm
-            onSwitchToLogin={() => {
-              setSignUpOpen(false);
-              setLoginOpen(true);
-            }}
-          />
+          <LoginForm />
         </DialogContent>
       </Dialog>
 
