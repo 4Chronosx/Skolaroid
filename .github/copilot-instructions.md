@@ -44,7 +44,7 @@ src/
 
 ## 🔐 Supabase & auth
 
-- Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (client) and `DATABASE_URL`/`DIRECT_URL` (Prisma).
+- Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (client) and `DATABASE_URL`/`DIRECT_URL` (Prisma).
 - Browser client created by `createBrowserClient` in `src/lib/supabase/client.ts`; server client in `.../server.ts` must be created per request (important for Fluid compute).
 - `src/lib/supabase/proxy.ts` is middleware used by `middleware.ts` (not shown here) that enforces login; it proxies cookies and redirects unauthenticated requests to `/auth/login`.
 - Do **not** mutate the response object returned from `createServerClient` without copying cookies as described in comments.
