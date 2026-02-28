@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 export function useUserAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
     // Check for an active Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session);
+      setUser(session?.user ?? null);
       setLoading(false);
     });
 
@@ -18,6 +21,7 @@ export function useUserAuth() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
+      setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -31,7 +35,8 @@ export function useUserAuth() {
     await supabase.auth.signOut();
     localStorage.removeItem('onboarding_completed');
     setIsAuthenticated(false);
+    setUser(null);
   };
 
-  return { isAuthenticated, loading, markOnboardingComplete, logout };
+  return { isAuthenticated, loading, user, markOnboardingComplete, logout };
 }

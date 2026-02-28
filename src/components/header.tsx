@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ClientNav } from './client-nav';
 import { useUserAuth } from '@/hooks/useUserAuth';
 import { AccountMenu } from './account-menu';
+import { NotificationsMenu } from './notifications-menu';
 import { Button } from '@/components/ui/button';
 
 export function Header() {
@@ -27,7 +28,10 @@ export function Header() {
         {/* Auth - Right */}
         <div className="ml-auto flex items-center gap-3">
           {!loading && isAuthenticated ? (
-            <AccountMenu />
+            <>
+              <NotificationsMenu />
+              <AccountMenu />
+            </>
           ) : (
             <Button
               asChild

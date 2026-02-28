@@ -121,6 +121,7 @@ export interface MemoryWithRelations {
   description?: string | null;
   mediaURL?: string | null;
   visibility: MemoryVisibility;
+  createdAt?: string;
   tags?: { id: string; name: string }[];
   location?: { buildingName: string };
   _count?: { votes: number };
