@@ -44,9 +44,37 @@ type AnimationPhase = 'closed' | 'opening' | 'open' | 'closing';
 const PAGE_BASE_STYLES =
   'flex flex-col gap-4 rounded-xl bg-stone-50 p-6 px-10 shadow-[1px_2px_3px_0px_rgba(0,0,0,0.25)]';
 
-// Styles for absolutely positioned page faces (front/back of flipping pages)
+// Styles for absolutely positioned page faces (front/back of flipping pages) - NO SHADOW to prevent stacking
 const PAGE_FACE_STYLES =
-  'absolute top-0 left-0 w-full h-full flex flex-col gap-4 rounded-xl bg-stone-50 p-6 px-10 shadow-[1px_2px_3px_0px_rgba(0,0,0,0.25)] overflow-hidden';
+  'absolute top-0 left-0 w-full h-full flex flex-col gap-4 rounded-xl bg-stone-50 p-6 px-10 overflow-hidden';
+
+// Spine ring component for left page (bar at right edge, circles point inward)
+const LeftPageSpineRings = () => (
+  <div className="pointer-events-none absolute -right-1 top-0 flex h-full flex-col items-end justify-around py-4">
+    {[0, 1, 2].map((i) => (
+      <div key={i} className="relative flex h-4 w-8 items-center">
+        {/* Circle pointing inward - positioned so bar edge aligns with circle center */}
+        <div className="absolute right-3 h-3.5 w-3.5 rounded-full bg-black" />
+        {/* Bar at right edge - rounded only on inner side, on top of circle */}
+        <div className="absolute right-0 z-10 h-1.5 w-5 rounded-l bg-zinc-400" />
+      </div>
+    ))}
+  </div>
+);
+
+// Spine ring component for right page (bar at left edge, circles point inward)
+const RightPageSpineRings = () => (
+  <div className="pointer-events-none absolute -left-1 top-0 flex h-full flex-col items-start justify-around py-4">
+    {[0, 1, 2].map((i) => (
+      <div key={i} className="relative flex h-4 w-8 items-center">
+        {/* Circle pointing inward - positioned so bar edge aligns with circle center */}
+        <div className="absolute left-3 h-3.5 w-3.5 rounded-full bg-black" />
+        {/* Bar at left edge - rounded only on inner side, on top of circle */}
+        <div className="absolute left-0 z-10 h-1.5 w-5 rounded-r bg-zinc-400" />
+      </div>
+    ))}
+  </div>
+);
 
 export function MemoryDetailModal({
   memory,
@@ -272,10 +300,18 @@ export function MemoryDetailModal({
                     style={{
                       width: '968px',
                       height: '650px', // Fixed height for the book
+                      overflow: 'visible',
+                      transformStyle: 'preserve-3d',
                     }}
                   >
                     {/* Pages Layer (always visible) */}
-                    <div className="absolute inset-0 rounded-2xl bg-sky-200 p-2 shadow-[0px_2px_4px_0px_rgba(0,0,0,0.25)]">
+                    <div
+                      className="absolute inset-0 rounded-2xl bg-sky-200 p-2 shadow-[0px_2px_4px_0px_rgba(0,0,0,0.25)]"
+                      style={{
+                        overflow: 'visible',
+                        transformStyle: 'preserve-3d',
+                      }}
+                    >
                       {/* Notebook tab */}
                       <div className="absolute -top-5 left-3 rounded-t-md bg-sky-200 px-3 py-0.5">
                         <span className="text-[10px] text-slate-600">
@@ -284,9 +320,20 @@ export function MemoryDetailModal({
                       </div>
 
                       {/* Two-page spread */}
-                      <div className="relative flex h-full gap-2">
+                      <div
+                        className="relative flex h-full gap-2"
+                        style={{
+                          transformStyle: 'preserve-3d',
+                        }}
+                      >
                         {/* BASE LEFT PAGE (shows current/new content) */}
-                        <div className={`${PAGE_BASE_STYLES} relative w-1/2`}>
+                        <div
+                          className={`${PAGE_BASE_STYLES} relative`}
+                          style={{
+                            width: '472px',
+                            zIndex: 1,
+                          }}
+                        >
                           {/* Date card */}
                           <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
                             <div>
@@ -364,24 +411,19 @@ export function MemoryDetailModal({
                               </div>
                             ))}
                           </div>
-                        </div>
 
-                        {/* SPINE (rings) - positioned to overlap pages */}
-                        <div className="pointer-events-none absolute left-1/2 top-0 z-30 flex h-full w-14 -translate-x-1/2 flex-col items-center justify-around py-4">
-                          {[0, 1, 2].map((i) => (
-                            <div
-                              key={i}
-                              className="relative flex h-4 w-14 items-center justify-center"
-                            >
-                              <div className="absolute left-0.5 h-3.5 w-3.5 rounded-full bg-black" />
-                              <div className="absolute right-0.5 h-3.5 w-3.5 rounded-full bg-black" />
-                              <div className="relative z-10 h-1.5 w-10 rounded bg-zinc-400" />
-                            </div>
-                          ))}
+                          {/* Spine rings on right edge of left page */}
+                          <LeftPageSpineRings />
                         </div>
 
                         {/* BASE RIGHT PAGE (shows current/new content) */}
-                        <div className={`${PAGE_BASE_STYLES} relative w-1/2`}>
+                        <div
+                          className={`${PAGE_BASE_STYLES} relative`}
+                          style={{
+                            width: '472px',
+                            zIndex: 1,
+                          }}
+                        >
                           {/* Author header */}
                           <div className="flex items-start gap-3">
                             <Avatar className="h-9 w-9">
@@ -473,6 +515,9 @@ export function MemoryDetailModal({
                               ))}
                             </div>
                           </div>
+
+                          {/* Spine rings on left edge of right page */}
+                          <RightPageSpineRings />
                         </div>
 
                         {/* ANIMATED LEFT PAGE OVERLAY - shows cached/old content during PREV flip */}
@@ -480,11 +525,15 @@ export function MemoryDetailModal({
                           cachedDateInfo &&
                           flipDirection === 'prev' && (
                             <motion.div
-                              className="absolute left-0 top-0 h-full w-[calc(50%-4px)]"
+                              className="absolute top-0"
                               style={{
+                                left: '8px', // Account for container p-2 padding
+                                width: '472px', // (968px - 16px padding - 8px gap) / 2
+                                height: '100%',
                                 transformStyle: 'preserve-3d',
-                                transformOrigin: 'right center',
-                                zIndex: 10,
+                                transformOrigin: '472px 50%', // Right edge, center
+                                willChange: 'transform',
+                                zIndex: 20, // Above base pages
                               }}
                               variants={leftPageFlipVariants}
                               initial="flat"
@@ -575,6 +624,9 @@ export function MemoryDetailModal({
                                     </div>
                                   ))}
                                 </div>
+
+                                {/* Spine rings on right edge */}
+                                <LeftPageSpineRings />
                               </div>
                               {/* Back of flipping left page - shows NEW right content */}
                               <div
@@ -676,6 +728,9 @@ export function MemoryDetailModal({
                                     ))}
                                   </div>
                                 </div>
+
+                                {/* Spine rings on left edge (back of left page shows right content) */}
+                                <RightPageSpineRings />
                               </div>
                             </motion.div>
                           )}
@@ -683,11 +738,15 @@ export function MemoryDetailModal({
                         {/* ANIMATED RIGHT PAGE OVERLAY - shows cached/old content during NEXT flip */}
                         {cachedMemory && flipDirection === 'next' && (
                           <motion.div
-                            className="absolute right-0 top-0 h-full w-[calc(50%-4px)]"
+                            className="absolute top-0"
                             style={{
+                              right: '8px', // Account for container p-2 padding
+                              width: '472px', // (968px - 16px padding - 8px gap) / 2
+                              height: '100%',
                               transformStyle: 'preserve-3d',
-                              transformOrigin: 'left center',
-                              zIndex: 10,
+                              transformOrigin: '0px 50%', // Left edge, center
+                              willChange: 'transform',
+                              zIndex: 20, // Above base pages
                             }}
                             variants={rightPageFlipVariants}
                             initial="flat"
@@ -790,6 +849,9 @@ export function MemoryDetailModal({
                                   ))}
                                 </div>
                               </div>
+
+                              {/* Spine rings on left edge */}
+                              <RightPageSpineRings />
                             </div>
                             {/* Back of flipping right page - shows NEW left content */}
                             <div
@@ -875,6 +937,9 @@ export function MemoryDetailModal({
                                   </div>
                                 ))}
                               </div>
+
+                              {/* Spine rings on right edge (back of right page shows left content) */}
+                              <LeftPageSpineRings />
                             </div>
                           </motion.div>
                         )}
@@ -896,12 +961,24 @@ export function MemoryDetailModal({
                           animate={animationPhase}
                         >
                           <div
-                            className="flex h-full items-center justify-center rounded-l-2xl bg-sky-200"
+                            className="relative flex h-full items-center justify-center rounded-l-2xl bg-sky-200"
                             style={{ backfaceVisibility: 'hidden' }}
                           >
                             <div className="flex flex-col items-center gap-2">
                               <div className="h-24 w-1 rounded-full bg-sky-300" />
                               <p className="text-xs text-sky-400">Memories</p>
+                            </div>
+                            {/* Spine connector on right edge */}
+                            <div className="pointer-events-none absolute right-0 top-0 flex h-full flex-col items-end justify-around py-4">
+                              {[0, 1, 2].map((i) => (
+                                <div
+                                  key={i}
+                                  className="relative flex h-4 w-7 items-center"
+                                >
+                                  <div className="absolute right-0 h-3.5 w-[7px] rounded-r-full bg-sky-400" />
+                                  <div className="absolute right-0.5 h-1.5 w-5 rounded-l bg-sky-300" />
+                                </div>
+                              ))}
                             </div>
                           </div>
                           <div
@@ -925,12 +1002,24 @@ export function MemoryDetailModal({
                           animate={animationPhase}
                         >
                           <div
-                            className="flex h-full items-center justify-center rounded-r-2xl bg-sky-200"
+                            className="relative flex h-full items-center justify-center rounded-r-2xl bg-sky-200"
                             style={{ backfaceVisibility: 'hidden' }}
                           >
                             <div className="flex flex-col items-center gap-2">
                               <div className="h-24 w-1 rounded-full bg-sky-300" />
                               <p className="text-xs text-sky-400">Book</p>
+                            </div>
+                            {/* Spine connector on left edge */}
+                            <div className="pointer-events-none absolute left-0 top-0 flex h-full flex-col items-start justify-around py-4">
+                              {[0, 1, 2].map((i) => (
+                                <div
+                                  key={i}
+                                  className="relative flex h-4 w-7 items-center"
+                                >
+                                  <div className="absolute left-0 h-3.5 w-[7px] rounded-l-full bg-sky-400" />
+                                  <div className="absolute left-0.5 h-1.5 w-5 rounded-r bg-sky-300" />
+                                </div>
+                              ))}
                             </div>
                           </div>
                           <div

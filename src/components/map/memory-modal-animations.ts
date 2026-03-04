@@ -88,14 +88,16 @@ export const rightPageFlipVariants: Variants = {
   // Normal state - page is flat, showing front
   flat: {
     rotateY: 0,
+    x: 0,
     transition: {
       duration: PAGE_FLIP_DURATION,
       ease: easeInOutCubic,
     },
   },
-  // Flipped state - page has turned over to the left
+  // Flipped state - page has turned over to the left with 1px shift
   flipped: {
     rotateY: -180,
+    x: -1, // Shift left 1px during flip
     transition: {
       duration: PAGE_FLIP_DURATION,
       ease: easeInOutCubic,
@@ -104,6 +106,7 @@ export const rightPageFlipVariants: Variants = {
   // Hidden - used to instantly hide the flipping page after animation
   hidden: {
     rotateY: -180,
+    x: 0,
     opacity: 0,
     transition: {
       duration: 0,
@@ -117,14 +120,16 @@ export const leftPageFlipVariants: Variants = {
   // Normal state - page is flat, showing front
   flat: {
     rotateY: 0,
+    x: 0,
     transition: {
       duration: PAGE_FLIP_DURATION,
       ease: easeInOutCubic,
     },
   },
-  // Flipped state - page has turned over to the right
+  // Flipped state - page has turned over to the right with 1px shift
   flipped: {
     rotateY: 180,
+    x: 1, // Shift right 1px during flip
     transition: {
       duration: PAGE_FLIP_DURATION,
       ease: easeInOutCubic,
@@ -133,6 +138,7 @@ export const leftPageFlipVariants: Variants = {
   // Hidden - used to instantly hide the flipping page after animation
   hidden: {
     rotateY: 180,
+    x: 0,
     opacity: 0,
     transition: {
       duration: 0,
