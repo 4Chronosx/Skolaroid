@@ -607,10 +607,9 @@ export function MapComponent() {
             );
             const prevMemory = memories[currentIndex - 1];
             if (prevMemory) {
-              // Fly to previous memory with sequence animation
-              flyToMemoryWithSequence(prevMemory, () => {
-                setSelectedMemory(prevMemory);
-              });
+              // Set memory immediately so the flip back-face shows new content
+              setSelectedMemory(prevMemory);
+              flyToMemoryWithSequence(prevMemory);
             }
           }
         }}
@@ -621,10 +620,9 @@ export function MapComponent() {
             );
             const nextMemory = memories[currentIndex + 1];
             if (nextMemory) {
-              // Fly to next memory with sequence animation
-              flyToMemoryWithSequence(nextMemory, () => {
-                setSelectedMemory(nextMemory);
-              });
+              // Set memory immediately so the flip back-face shows new content
+              setSelectedMemory(nextMemory);
+              flyToMemoryWithSequence(nextMemory);
             }
           }
         }}

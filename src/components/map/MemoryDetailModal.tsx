@@ -37,7 +37,6 @@ interface MemoryDetailModalProps {
   hasNext?: boolean;
 }
 
-type ImageOrientation = 'portrait' | 'landscape' | 'square';
 type AnimationPhase = 'closed' | 'opening' | 'open' | 'closing';
 
 // Page styles shared between left and right pages
@@ -127,8 +126,6 @@ export function MemoryDetailModal({
   hasPrevious = false,
   hasNext = false,
 }: MemoryDetailModalProps) {
-  const [imageOrientation, setImageOrientation] =
-    useState<ImageOrientation>('portrait');
   const [animationPhase, setAnimationPhase] =
     useState<AnimationPhase>('closed');
   const [isRightPageFlipped, setIsRightPageFlipped] = useState(false);
@@ -175,7 +172,8 @@ export function MemoryDetailModal({
   const handleNext = () => {
     if (!hasNext || isFlipping || !onNext) return;
 
-    // Cache current memory so flipping page shows OLD content
+    // Cache current memory and orientation so the flipping page and base left page
+    // stay stable while the new image loads
     setCachedMemory(memory);
     setFlipDirection('next');
     setIsFlipping(true);
@@ -199,7 +197,8 @@ export function MemoryDetailModal({
   const handlePrevious = () => {
     if (!hasPrevious || isFlipping || !onPrevious) return;
 
-    // Cache current memory so flipping page shows OLD content
+    // Cache current memory and orientation so the flipping page and base left page
+    // stay stable while the new image loads
     setCachedMemory(memory);
     setFlipDirection('prev');
     setIsFlipping(true);
@@ -259,34 +258,8 @@ export function MemoryDetailModal({
     [cachedMemory]
   );
 
-  // Get polaroid width based on orientation
-  const getPolaroidWidth = () => {
-    switch (imageOrientation) {
-      case 'landscape':
-        return 'w-full';
-      case 'square':
-        return 'w-72';
-      case 'portrait':
-      default:
-        return 'w-64';
-    }
-  };
-
-  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    const ratio = img.naturalWidth / img.naturalHeight;
-    if (Math.abs(ratio - 1) < 0.1) {
-      setImageOrientation('square');
-    } else if (ratio > 1) {
-      setImageOrientation('landscape');
-    } else {
-      setImageOrientation('portrait');
-    }
-  };
-
   if (!memory || !dateInfo) return null;
 
-  const polaroidWidth = getPolaroidWidth();
   const authorName = 'Memory Author';
   const authorInitial = 'M';
   const commentCount = 120;
@@ -297,6 +270,20 @@ export function MemoryDetailModal({
 
   // Whether covers should be visible (during open/close animations or closed state)
   const showCovers = animationPhase !== 'open';
+
+  // During a flip, the base page that starts EXPOSED (not yet covered by the overlay)
+  // must hold old content so the reveal stays intact until the overlay sweeps over it.
+  // - 'next' flip: left base is exposed first → hold old content there
+  // - 'prev' flip: right base is exposed first → hold old content there
+  const baseLeftDateInfo = (
+    isFlipping && flipDirection === 'next' ? cachedDateInfo : dateInfo
+  )!;
+  const baseLeftMemory = (
+    isFlipping && flipDirection === 'next' ? cachedMemory : memory
+  )!;
+  const baseRightMemory = (
+    isFlipping && flipDirection === 'prev' ? cachedMemory : memory
+  )!;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -383,18 +370,19 @@ export function MemoryDetailModal({
                                 WHEN
                               </p>
                               <p className="text-base font-medium text-black">
-                                {dateInfo.dayOfWeek}, {dateInfo.month}{' '}
-                                {dateInfo.dayNumber}
+                                {baseLeftDateInfo.dayOfWeek},{' '}
+                                {baseLeftDateInfo.month}{' '}
+                                {baseLeftDateInfo.dayNumber}
                               </p>
                               <p className="text-[8px] text-gray-400">
-                                {dateInfo.uploadTime.replace(/:/g, '-')}
+                                {baseLeftDateInfo.uploadTime.replace(/:/g, '-')}
                               </p>
                             </div>
                             <div className="flex h-14 w-14 flex-col overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-neutral-50/50 to-gray-400/50">
                               <div className="h-3 w-full rounded-t-md bg-skolaroid-blue" />
                               <div className="flex flex-1 items-center justify-center">
                                 <span className="text-2xl font-medium text-black">
-                                  {dateInfo.dayNumber}
+                                  {baseLeftDateInfo.dayNumber}
                                 </span>
                               </div>
                             </div>
@@ -402,22 +390,21 @@ export function MemoryDetailModal({
 
                           {/* Polaroid photo */}
                           <div className="flex flex-1 items-center justify-center">
-                            <div className={polaroidWidth}>
-                              {memory.mediaURL ? (
+                            <div className="w-full">
+                              {baseLeftMemory.mediaURL ? (
                                 <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                  <div className="relative h-72 w-full overflow-hidden bg-gray-50">
+                                  <div className="relative h-80 w-full overflow-hidden">
                                     <Image
-                                      src={memory.mediaURL}
-                                      alt={memory.title}
+                                      src={baseLeftMemory.mediaURL}
+                                      alt={baseLeftMemory.title}
                                       fill
                                       className="object-cover"
-                                      onLoad={handleImageLoad}
                                     />
                                   </div>
                                 </div>
                               ) : (
                                 <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                  <div className="flex h-72 w-full items-center justify-center bg-gray-100">
+                                  <div className="flex h-80 w-full items-center justify-center bg-gray-100">
                                     <span className="text-xs text-gray-400">
                                       No image
                                     </span>
@@ -429,7 +416,7 @@ export function MemoryDetailModal({
 
                           {/* Calendar week strip */}
                           <div className="flex items-center justify-center gap-0.5">
-                            {dateInfo.calendarWeek.map((day) => (
+                            {baseLeftDateInfo.calendarWeek.map((day) => (
                               <div
                                 key={day.label + day.number}
                                 className="flex h-20 w-14 flex-col items-center overflow-hidden rounded bg-stone-50"
@@ -495,7 +482,8 @@ export function MemoryDetailModal({
                           {/* Caption card */}
                           <div className="rounded-2xl bg-gradient-to-b from-slate-100 to-gray-100 p-5 shadow-[0px_1px_2px_0.5px_rgba(0,0,0,0.25)] outline outline-[3px] outline-white">
                             <p className="text-center font-dancing text-2xl leading-relaxed text-slate-800">
-                              {memory.description || 'A memorable moment...'}
+                              {baseRightMemory.description ||
+                                'A memorable moment...'}
                             </p>
                           </div>
 
@@ -620,10 +608,10 @@ export function MemoryDetailModal({
 
                                 {/* Polaroid photo - cached content */}
                                 <div className="flex flex-1 items-center justify-center">
-                                  <div className={polaroidWidth}>
+                                  <div className="w-full">
                                     {cachedMemory.mediaURL ? (
                                       <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                        <div className="relative h-72 w-full overflow-hidden bg-gray-50">
+                                        <div className="relative h-80 w-full overflow-hidden">
                                           <Image
                                             src={cachedMemory.mediaURL}
                                             alt={cachedMemory.title}
@@ -634,7 +622,7 @@ export function MemoryDetailModal({
                                       </div>
                                     ) : (
                                       <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                        <div className="flex h-72 w-full items-center justify-center bg-gray-100">
+                                        <div className="flex h-80 w-full items-center justify-center bg-gray-100">
                                           <span className="text-xs text-gray-400">
                                             No image
                                           </span>
@@ -933,10 +921,10 @@ export function MemoryDetailModal({
 
                               {/* Polaroid photo */}
                               <div className="flex flex-1 items-center justify-center">
-                                <div className={polaroidWidth}>
+                                <div className="w-full">
                                   {memory.mediaURL ? (
                                     <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                      <div className="relative h-72 w-full overflow-hidden bg-gray-50">
+                                      <div className="relative h-80 w-full overflow-hidden">
                                         <Image
                                           src={memory.mediaURL}
                                           alt={memory.title}
@@ -947,7 +935,7 @@ export function MemoryDetailModal({
                                     </div>
                                   ) : (
                                     <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                      <div className="flex h-72 w-full items-center justify-center bg-gray-100">
+                                      <div className="flex h-80 w-full items-center justify-center bg-gray-100">
                                         <span className="text-xs text-gray-400">
                                           No image
                                         </span>
