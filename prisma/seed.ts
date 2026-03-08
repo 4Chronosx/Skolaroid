@@ -424,6 +424,11 @@ const TAGS = [
     name: 'activism',
     slug: 'activism',
   },
+  {
+    id: '20000000-0000-4000-8000-000000000010',
+    name: 'batch-2025',
+    slug: 'batch-2025',
+  },
 ] as const;
 
 // A single seed program + batch so the memory FK is satisfied.
@@ -464,7 +469,7 @@ const MEMORIES = [
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000027',
     programBatchId: PROGRAM_BATCH_ID,
-    tagSlugs: ['tradition'],
+    tagSlugs: ['tradition', 'batch-2024'],
   },
   {
     id: '60000000-0000-4000-8000-000000000003',
@@ -474,7 +479,7 @@ const MEMORIES = [
     visibility: 'PROGRAM_ONLY' as const,
     locationId: '10000000-0000-4000-8000-000000000027',
     programBatchId: PROGRAM_BATCH_ID,
-    tagSlugs: [],
+    tagSlugs: ['batch-2025'],
   },
   // --- Library Building (2 memories) ---
   {
@@ -486,7 +491,7 @@ const MEMORIES = [
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000006',
     programBatchId: PROGRAM_BATCH_ID,
-    tagSlugs: ['academics', 'finals'],
+    tagSlugs: ['academics', 'finals', 'batch-2024'],
   },
   {
     id: '60000000-0000-4000-8000-000000000005',
@@ -496,7 +501,7 @@ const MEMORIES = [
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000006',
     programBatchId: PROGRAM_BATCH_ID,
-    tagSlugs: ['event'],
+    tagSlugs: ['event', 'batch-2024'],
   },
   // --- Arts and Sciences Bldg. (2 memories) ---
   {
@@ -508,7 +513,7 @@ const MEMORIES = [
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000020',
     programBatchId: PROGRAM_BATCH_ID,
-    tagSlugs: ['music', 'night-event'],
+    tagSlugs: ['music', 'night-event', 'batch-2024'],
   },
   {
     id: '60000000-0000-4000-8000-000000000007',
@@ -518,7 +523,7 @@ const MEMORIES = [
     visibility: 'BATCH_ONLY' as const,
     locationId: '10000000-0000-4000-8000-000000000020',
     programBatchId: PROGRAM_BATCH_ID,
-    tagSlugs: ['activism'],
+    tagSlugs: ['activism', 'batch-2025'],
   },
   // --- Amphitheater/Sunset Garden (1 memory) ---
   {
@@ -530,7 +535,7 @@ const MEMORIES = [
     visibility: 'PUBLIC' as const,
     locationId: '10000000-0000-4000-8000-000000000035',
     programBatchId: PROGRAM_BATCH_ID,
-    tagSlugs: ['tradition', 'event'],
+    tagSlugs: ['tradition', 'event', 'batch-2024'],
   },
   // (remaining 46 locations have no seed memories — add more as needed)
 ] as const;

@@ -109,6 +109,11 @@ export const MOCK_MEMORIES = [
         name: 'tradition',
         slug: 'tradition',
       },
+      {
+        id: '30000000-0000-0000-0000-000000000002',
+        name: 'batch-2024',
+        slug: 'batch-2024',
+      },
     ],
     _count: { votes: 24 },
   },
@@ -130,7 +135,13 @@ export const MOCK_MEMORIES = [
       id: '00000000-0000-0000-0000-000000000001',
       buildingName: 'Oblation Plaza',
     },
-    tags: [],
+    tags: [
+      {
+        id: '30000000-0000-0000-0000-000000000012',
+        name: 'batch-2025',
+        slug: 'batch-2025',
+      },
+    ],
     _count: { votes: 3 },
   },
 
@@ -165,6 +176,11 @@ export const MOCK_MEMORIES = [
         name: 'finals',
         slug: 'finals',
       },
+      {
+        id: '30000000-0000-0000-0000-000000000002',
+        name: 'batch-2024',
+        slug: 'batch-2024',
+      },
     ],
     _count: { votes: 8 },
   },
@@ -191,6 +207,11 @@ export const MOCK_MEMORIES = [
         id: '30000000-0000-0000-0000-000000000006',
         name: 'event',
         slug: 'event',
+      },
+      {
+        id: '30000000-0000-0000-0000-000000000002',
+        name: 'batch-2024',
+        slug: 'batch-2024',
       },
     ],
     _count: { votes: 6 },
@@ -227,6 +248,11 @@ export const MOCK_MEMORIES = [
         name: 'night-event',
         slug: 'night-event',
       },
+      {
+        id: '30000000-0000-0000-0000-000000000002',
+        name: 'batch-2024',
+        slug: 'batch-2024',
+      },
     ],
     _count: { votes: 15 },
   },
@@ -253,6 +279,11 @@ export const MOCK_MEMORIES = [
         id: '30000000-0000-0000-0000-000000000009',
         name: 'activism',
         slug: 'activism',
+      },
+      {
+        id: '30000000-0000-0000-0000-000000000012',
+        name: 'batch-2025',
+        slug: 'batch-2025',
       },
     ],
     _count: { votes: 20 },
@@ -289,8 +320,88 @@ export const MOCK_MEMORIES = [
         name: 'event',
         slug: 'event',
       },
+      {
+        id: '30000000-0000-0000-0000-000000000002',
+        name: 'batch-2024',
+        slug: 'batch-2024',
+      },
     ],
     _count: { votes: 31 },
+  },
+
+  // --- Oblation Plaza — 2010s era (1 memory for cross-era testing) ---
+  {
+    id: '10000000-0000-0000-0000-000000000009',
+    title: 'Oblation Plaza Reunion 2015',
+    description:
+      'Batch 2010 gathered at the Oblation for a 5-year reunion — the plaza looked exactly the same.',
+    mediaURL: '/temporary_map.png',
+    uploadDate: '2015-06-20T10:00:00.000Z',
+    visibility: 'PUBLIC' as const,
+    isArchived: false,
+    deletedAt: null,
+    creatorId: null,
+    programBatchId: '20000000-0000-0000-0000-000000000002',
+    locationId: '00000000-0000-0000-0000-000000000001',
+    createdAt: '2015-06-20T10:00:00.000Z',
+    updatedAt: '2015-06-20T10:00:00.000Z',
+    location: {
+      id: '00000000-0000-0000-0000-000000000001',
+      buildingName: 'Oblation Plaza',
+    },
+    tags: [
+      {
+        id: '30000000-0000-0000-0000-000000000010',
+        name: 'reunion',
+        slug: 'reunion',
+      },
+      {
+        id: '30000000-0000-0000-0000-000000000011',
+        name: 'batch-2010',
+        slug: 'batch-2010',
+      },
+    ],
+    _count: { votes: 18 },
+  },
+
+  // --- AS Steps — 2010s era (1 memory for cross-era testing) ---
+  {
+    id: '10000000-0000-0000-0000-000000000010',
+    title: 'Freshmen Orientation 2012',
+    description:
+      'The AS Steps were packed with bright-eyed freshmen on their first day at UP Cebu.',
+    mediaURL: '/temporary_map.png',
+    uploadDate: '2012-08-01T09:00:00.000Z',
+    visibility: 'PUBLIC' as const,
+    isArchived: false,
+    deletedAt: null,
+    creatorId: null,
+    programBatchId: '20000000-0000-0000-0000-000000000002',
+    locationId: '00000000-0000-0000-0000-000000000003',
+    createdAt: '2012-08-01T09:00:00.000Z',
+    updatedAt: '2012-08-01T09:00:00.000Z',
+    location: {
+      id: '00000000-0000-0000-0000-000000000003',
+      buildingName: 'AS Steps',
+    },
+    tags: [
+      {
+        id: '30000000-0000-0000-0000-000000000001',
+        name: 'freshman',
+        slug: 'freshman',
+      },
+      {
+        id: '30000000-0000-0000-0000-000000000006',
+        name: 'event',
+        slug: 'event',
+      },
+      {
+        id: '30000000-0000-0000-0000-000000000013',
+        name: 'batch-2012',
+        slug: 'batch-2012',
+      },
+    ],
+    _count: { votes: 9 },
   },
 
   // --- College of Engineering (0 memories) ---

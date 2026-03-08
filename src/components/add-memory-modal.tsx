@@ -14,7 +14,15 @@ import {
   VISIBILITY_LABELS,
   type MemoryVisibility,
 } from '@/lib/schemas';
-import { Eye, FileText, ImageIcon, MapPin, Upload, X } from 'lucide-react';
+import {
+  Eye,
+  FileText,
+  ImageIcon,
+  MapPin,
+  Upload,
+  X,
+  Calendar,
+} from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -37,6 +45,8 @@ interface FormData {
 interface AddMemoryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Optional era (decade start year) for context display, e.g. 2020. */
+  defaultEra?: number | null;
 }
 
 // =============================================================================
@@ -93,7 +103,11 @@ const INITIAL_FORM_DATA: FormData = {
 // COMPONENT
 // =============================================================================
 
-export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
+export function AddMemoryModal({
+  open,
+  onOpenChange,
+  defaultEra,
+}: AddMemoryModalProps) {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -333,6 +347,15 @@ export function AddMemoryModal({ open, onOpenChange }: AddMemoryModalProps) {
 
   const renderUploadStep = () => (
     <div className="flex flex-col items-center justify-center gap-4">
+      {defaultEra != null && (
+        <div className="flex w-full items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+          <Calendar className="h-4 w-4 text-sky-600" />
+          <span className="text-sm text-sky-700">
+            Adding to the <span className="font-semibold">{defaultEra}s</span>{' '}
+            era
+          </span>
+        </div>
+      )}
       <input
         ref={fileInputRef}
         type="file"
