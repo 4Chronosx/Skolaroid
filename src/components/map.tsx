@@ -90,6 +90,14 @@ const FLY_TO_THRESHOLD = 0.0001;
 /** Delay (ms) after closing BatchesModal before starting flyTo, so the Dialog close animation completes. */
 const MODAL_CLOSE_DELAY = 300;
 
+/** Camera animation configuration for smooth, cinematic flyTo transitions. */
+const CAMERA_ANIMATION = {
+  speed: 0.8, // Slower speed = smoother, more cinematic
+  curve: 1.2, // Gentle arc for natural movement
+  targetZoom: 20, // Zoom level when selecting a memory
+  essential: true, // Ensures animation is not skipped even if user prefers reduced motion
+};
+
 export function MapComponent() {
   const router = useRouter();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -190,7 +198,7 @@ export function MapComponent() {
         Math.abs(center.lat - targetLat) < FLY_TO_THRESHOLD &&
         !needsEraSwitch;
 
-      // Helper: fly to the memory location, then open the detail modal
+      // Helper: fly to the memory location with sequence, then open the detail modal
       const flyAndOpen = () => {
         // Guard: if a different memory was selected in the meantime, bail
         if (pendingMemoryRef.current?.id !== memory.id) return;
@@ -203,21 +211,13 @@ export function MapComponent() {
           return;
         }
 
-        const onMoveEnd = () => {
-          map.off('moveend', onMoveEnd);
+        // Use the cinematic sequence: zoom out → fly → zoom in
+        flyToMemoryWithSequence(memory, () => {
           // Guard against stale events
           if (pendingMemoryRef.current?.id !== memory.id) return;
           setSelectedMemory(memory);
           setMemoryDetailOpen(true);
           pendingMemoryRef.current = null;
-        };
-
-        map.on('moveend', onMoveEnd);
-
-        map.flyTo({
-          center: [targetLng, targetLat],
-          zoom: 20,
-          duration: 1500,
         });
       };
 
@@ -227,9 +227,9 @@ export function MapComponent() {
         if (pendingMemoryRef.current?.id !== memory.id) return;
 
         if (needsEraSwitch) {
-          // Switch era — this triggers a setStyle call which reloads the map style.
-          // We need to wait for 'style.load' before calling flyTo.
-          setActiveMapEra(memoryEra);
+          // Switch era — directly call setStyle and listen for the event before flying.
+          // Important: attach listener BEFORE calling setStyle to ensure we catch the event.
+          const targetStyle = ERA_MAP_STYLES[memoryEra] ?? DEFAULT_MAP_STYLE;
 
           const onStyleLoad = () => {
             map.off('style.load', onStyleLoad);
@@ -239,12 +239,14 @@ export function MapComponent() {
           };
 
           map.on('style.load', onStyleLoad);
+          map.setStyle(targetStyle);
+          setActiveMapEra(memoryEra);
         } else {
           flyAndOpen();
         }
       }, MODAL_CLOSE_DELAY);
     },
-    [activeMapEra]
+    [activeMapEra, flyToMemoryWithSequence]
   );
 
   // Clear pending memory when user opens another modal or performs an action
@@ -252,6 +254,35 @@ export function MapComponent() {
   const cancelPendingFlyTo = useCallback(() => {
     pendingMemoryRef.current = null;
   }, []);
+
+  // Helper: Direct flyTo with optional callback on completion
+  const flyToMemoryWithSequence = useCallback(
+    (memory: MemoryWithCoordinates, onComplete?: () => void) => {
+      const map = mapRef.current;
+      if (!map) {
+        onComplete?.();
+        return;
+      }
+
+      // Direct flyTo with cinematic animation settings
+      map.flyTo({
+        center: [memory.location.longitude, memory.location.latitude],
+        zoom: CAMERA_ANIMATION.targetZoom,
+        speed: CAMERA_ANIMATION.speed,
+        curve: CAMERA_ANIMATION.curve,
+        duration: 1500,
+        essential: CAMERA_ANIMATION.essential,
+      });
+
+      // Call completion callback when move ends
+      const onMoveEnd = () => {
+        map.off('moveend', onMoveEnd);
+        onComplete?.();
+      };
+      map.once('moveend', onMoveEnd);
+    },
+    []
+  );
 
   useLayoutEffect(() => {
     setIsClient(true);
@@ -573,7 +604,13 @@ export function MapComponent() {
             const currentIndex = memories.findIndex(
               (m) => m.id === selectedMemory.id
             );
-            setSelectedMemory(memories[currentIndex - 1]);
+            const prevMemory = memories[currentIndex - 1];
+            if (prevMemory) {
+              // Fly to previous memory with sequence animation
+              flyToMemoryWithSequence(prevMemory, () => {
+                setSelectedMemory(prevMemory);
+              });
+            }
           }
         }}
         onNext={() => {
@@ -581,7 +618,13 @@ export function MapComponent() {
             const currentIndex = memories.findIndex(
               (m) => m.id === selectedMemory.id
             );
-            setSelectedMemory(memories[currentIndex + 1]);
+            const nextMemory = memories[currentIndex + 1];
+            if (nextMemory) {
+              // Fly to next memory with sequence animation
+              flyToMemoryWithSequence(nextMemory, () => {
+                setSelectedMemory(nextMemory);
+              });
+            }
           }
         }}
       />
