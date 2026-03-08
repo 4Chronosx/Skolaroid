@@ -23,8 +23,8 @@ import {
   leftPageFlipVariants,
   chevronVariants,
   overlayVariants,
-  PAGE_FLIP_DURATION,
   BOOK_OPEN_DURATION,
+  BOOK_CLOSE_DURATION,
 } from './memory-modal-animations';
 
 interface MemoryDetailModalProps {
@@ -49,29 +49,71 @@ const PAGE_FACE_STYLES =
   'absolute top-0 left-0 w-full h-full flex flex-col gap-4 rounded-xl bg-stone-50 p-6 px-10 overflow-hidden';
 
 // Spine ring component for left page (bar at right edge, circles point inward)
-const LeftPageSpineRings = () => (
-  <div className="pointer-events-none absolute -right-1 top-0 flex h-full flex-col items-end justify-around py-4">
+// Each ring scales individually from its center to prevent vertical movement
+const LeftPageSpineRings = ({
+  shouldScale = false,
+  delay = 0,
+}: {
+  shouldScale?: boolean;
+  delay?: number;
+}) => (
+  <div
+    className="pointer-events-none absolute -right-1 top-0 flex h-full flex-col items-end justify-around py-4"
+    style={{ transformStyle: 'flat' }}
+  >
     {[0, 1, 2].map((i) => (
-      <div key={i} className="relative flex h-4 w-8 items-center">
+      <motion.div
+        key={i}
+        className="relative flex h-4 w-8 items-center"
+        animate={{ scale: shouldScale && i !== 0 ? [1, 1.08, 1] : 1 }}
+        transition={{
+          duration: 0.5,
+          times: [0, 0.3, 1],
+          ease: 'easeOut',
+          delay,
+        }}
+        style={{ transformOrigin: 'center center' }}
+      >
         {/* Circle pointing inward - positioned so bar edge aligns with circle center */}
         <div className="absolute right-3 h-3.5 w-3.5 rounded-full bg-black" />
         {/* Bar at right edge - rounded only on inner side, on top of circle */}
         <div className="absolute right-0 z-10 h-1.5 w-5 rounded-l bg-zinc-400" />
-      </div>
+      </motion.div>
     ))}
   </div>
 );
 
 // Spine ring component for right page (bar at left edge, circles point inward)
-const RightPageSpineRings = () => (
-  <div className="pointer-events-none absolute -left-1 top-0 flex h-full flex-col items-start justify-around py-4">
+// Each ring scales individually from its center to prevent vertical movement
+const RightPageSpineRings = ({
+  shouldScale = false,
+  delay = 0,
+}: {
+  shouldScale?: boolean;
+  delay?: number;
+}) => (
+  <div
+    className="pointer-events-none absolute -left-1 top-0 flex h-full flex-col items-start justify-around py-4"
+    style={{ transformStyle: 'flat' }}
+  >
     {[0, 1, 2].map((i) => (
-      <div key={i} className="relative flex h-4 w-8 items-center">
+      <motion.div
+        key={i}
+        className="relative flex h-4 w-8 items-center"
+        animate={{ scale: shouldScale && i !== 0 ? [1, 1.08, 1] : 1 }}
+        transition={{
+          duration: 0.5,
+          times: [0, 0.3, 1],
+          ease: 'easeOut',
+          delay,
+        }}
+        style={{ transformOrigin: 'center center' }}
+      >
         {/* Circle pointing inward - positioned so bar edge aligns with circle center */}
         <div className="absolute left-3 h-3.5 w-3.5 rounded-full bg-black" />
         {/* Bar at left edge - rounded only on inner side, on top of circle */}
         <div className="absolute left-0 z-10 h-1.5 w-5 rounded-r bg-zinc-400" />
-      </div>
+      </motion.div>
     ))}
   </div>
 );
@@ -113,7 +155,7 @@ export function MemoryDetailModal({
       setAnimationPhase('closing');
       const timer = setTimeout(() => {
         setAnimationPhase('closed');
-      }, BOOK_OPEN_DURATION * 1000);
+      }, BOOK_CLOSE_DURATION * 1000);
       return () => clearTimeout(timer);
     }
   }, [open]);
@@ -150,7 +192,7 @@ export function MemoryDetailModal({
       setFlipDirection(null);
       setIsRightPageFlipped(false);
       setIsFlipping(false);
-    }, PAGE_FLIP_DURATION * 1000);
+    }, 610);
   };
 
   // Handle PREVIOUS: left page flips over to the right, revealing new content underneath
@@ -174,7 +216,7 @@ export function MemoryDetailModal({
       setFlipDirection(null);
       setIsLeftPageFlipped(false);
       setIsFlipping(false);
-    }, PAGE_FLIP_DURATION * 1000);
+    }, 610);
   };
 
   // Helper function to compute date info for a memory
@@ -412,8 +454,10 @@ export function MemoryDetailModal({
                             ))}
                           </div>
 
-                          {/* Spine rings on right edge of left page */}
-                          <LeftPageSpineRings />
+                          {/* Spine rings on right edge of left page - scales when right page is flipping */}
+                          <LeftPageSpineRings
+                            shouldScale={isFlipping && flipDirection === 'next'}
+                          />
                         </div>
 
                         {/* BASE RIGHT PAGE (shows current/new content) */}
@@ -516,8 +560,10 @@ export function MemoryDetailModal({
                             </div>
                           </div>
 
-                          {/* Spine rings on left edge of right page */}
-                          <RightPageSpineRings />
+                          {/* Spine rings on left edge of right page - scales when left page is flipping */}
+                          <RightPageSpineRings
+                            shouldScale={isFlipping && flipDirection === 'prev'}
+                          />
                         </div>
 
                         {/* ANIMATED LEFT PAGE OVERLAY - shows cached/old content during PREV flip */}

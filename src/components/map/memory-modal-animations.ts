@@ -2,11 +2,13 @@ import type { Variants } from 'framer-motion';
 
 // Timing constants
 export const BOOK_OPEN_DURATION = 0.8;
-export const PAGE_FLIP_DURATION = 0.8;
+export const BOOK_CLOSE_DURATION = 1.8;
+export const PAGE_FLIP_DURATION = 0.6;
 
 // Easing presets
 export const easeOutCubic = [0.33, 1, 0.68, 1] as const;
 export const easeInOutCubic = [0.65, 0, 0.35, 1] as const;
+export const easeInCubic = [0.4, 0, 1, 1] as const; // Accelerates at the end
 
 // Book container - no animations, just holds perspective
 export const bookContainerVariants: Variants = {
@@ -39,7 +41,7 @@ export const coverLeftVariants: Variants = {
     rotateY: 0,
     zIndex: 30,
     transition: {
-      duration: BOOK_OPEN_DURATION,
+      duration: BOOK_CLOSE_DURATION,
       ease: easeInOutCubic,
     },
   },
@@ -68,7 +70,7 @@ export const coverRightVariants: Variants = {
     rotateY: 0,
     zIndex: 30,
     transition: {
-      duration: BOOK_OPEN_DURATION,
+      duration: BOOK_CLOSE_DURATION,
       ease: easeInOutCubic,
     },
   },
@@ -88,25 +90,22 @@ export const rightPageFlipVariants: Variants = {
   // Normal state - page is flat, showing front
   flat: {
     rotateY: 0,
-    x: 0,
     transition: {
       duration: PAGE_FLIP_DURATION,
-      ease: easeInOutCubic,
+      ease: easeInCubic,
     },
   },
-  // Flipped state - page has turned over to the left with 1px shift
+  // Flipped state - page has turned over to the left
   flipped: {
     rotateY: -180,
-    x: -1, // Shift left 1px during flip
     transition: {
       duration: PAGE_FLIP_DURATION,
-      ease: easeInOutCubic,
+      ease: easeInCubic,
     },
   },
   // Hidden - used to instantly hide the flipping page after animation
   hidden: {
     rotateY: -180,
-    x: 0,
     opacity: 0,
     transition: {
       duration: 0,
@@ -120,25 +119,22 @@ export const leftPageFlipVariants: Variants = {
   // Normal state - page is flat, showing front
   flat: {
     rotateY: 0,
-    x: 0,
     transition: {
       duration: PAGE_FLIP_DURATION,
-      ease: easeInOutCubic,
+      ease: easeInCubic,
     },
   },
-  // Flipped state - page has turned over to the right with 1px shift
+  // Flipped state - page has turned over to the right
   flipped: {
     rotateY: 180,
-    x: 1, // Shift right 1px during flip
     transition: {
       duration: PAGE_FLIP_DURATION,
-      ease: easeInOutCubic,
+      ease: easeInCubic,
     },
   },
   // Hidden - used to instantly hide the flipping page after animation
   hidden: {
     rotateY: 180,
-    x: 0,
     opacity: 0,
     transition: {
       duration: 0,
@@ -166,6 +162,9 @@ export const chevronVariants: Variants = {
 export const overlayVariants: Variants = {
   closed: {
     opacity: 0,
+    transition: {
+      duration: 0.2,
+    },
   },
   open: {
     opacity: 1,
