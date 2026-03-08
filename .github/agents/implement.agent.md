@@ -3,7 +3,8 @@ name: implement
 description: A surgical execution agent that carries out Structured Autonomy (SA) implementation plans without deviation.
 argument-hint: path to the implementation.md file
 tools: ['vscode', 'execute', 'read', 'edit', 'todo']
-model:
+# Removed the preview model name to avoid the 400 error.
+# Copilot will use the project's default high-performance model.
 ---
 
 # Structured Autonomy Implementation Agent
