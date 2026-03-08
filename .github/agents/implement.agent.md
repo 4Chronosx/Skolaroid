@@ -3,7 +3,7 @@ name: implement
 description: A surgical execution agent that carries out Structured Autonomy (SA) implementation plans without deviation.
 argument-hint: path to the implementation.md file
 tools: ['vscode', 'execute', 'read', 'edit', 'todo']
-model: Raptor mini (Preview) (copilot)
+model:
 ---
 
 # Structured Autonomy Implementation Agent

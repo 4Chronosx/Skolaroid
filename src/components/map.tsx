@@ -167,6 +167,36 @@ export function MapComponent() {
   // ---------------------------------------------------------------------------
   // Batches → FlyTo → Detail handler
   // ---------------------------------------------------------------------------
+
+  // Helper: Direct flyTo with optional callback on completion
+  const flyToMemoryWithSequence = useCallback(
+    (memory: MemoryWithCoordinates, onComplete?: () => void) => {
+      const map = mapRef.current;
+      if (!map) {
+        onComplete?.();
+        return;
+      }
+
+      // Direct flyTo with cinematic animation settings
+      map.flyTo({
+        center: [memory.location.longitude, memory.location.latitude],
+        zoom: CAMERA_ANIMATION.targetZoom,
+        speed: CAMERA_ANIMATION.speed,
+        curve: CAMERA_ANIMATION.curve,
+        duration: 1500,
+        essential: CAMERA_ANIMATION.essential,
+      });
+
+      // Call completion callback when move ends
+      const onMoveEnd = () => {
+        map.off('moveend', onMoveEnd);
+        onComplete?.();
+      };
+      map.once('moveend', onMoveEnd);
+    },
+    []
+  );
+
   const handleBatchesMemorySelected = useCallback(
     (memory: MemoryWithCoordinates) => {
       // Close the batches modal (already done by BatchesModal, but ensure state is synced)
@@ -254,35 +284,6 @@ export function MapComponent() {
   const cancelPendingFlyTo = useCallback(() => {
     pendingMemoryRef.current = null;
   }, []);
-
-  // Helper: Direct flyTo with optional callback on completion
-  const flyToMemoryWithSequence = useCallback(
-    (memory: MemoryWithCoordinates, onComplete?: () => void) => {
-      const map = mapRef.current;
-      if (!map) {
-        onComplete?.();
-        return;
-      }
-
-      // Direct flyTo with cinematic animation settings
-      map.flyTo({
-        center: [memory.location.longitude, memory.location.latitude],
-        zoom: CAMERA_ANIMATION.targetZoom,
-        speed: CAMERA_ANIMATION.speed,
-        curve: CAMERA_ANIMATION.curve,
-        duration: 1500,
-        essential: CAMERA_ANIMATION.essential,
-      });
-
-      // Call completion callback when move ends
-      const onMoveEnd = () => {
-        map.off('moveend', onMoveEnd);
-        onComplete?.();
-      };
-      map.once('moveend', onMoveEnd);
-    },
-    []
-  );
 
   useLayoutEffect(() => {
     setIsClient(true);
