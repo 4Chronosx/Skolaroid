@@ -9,6 +9,7 @@ import {
   useCallback,
   useMemo,
 } from 'react';
+import { getEraFromBatchTag } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { createRoot, type Root } from 'react-dom/client';
 import { Plus } from 'lucide-react';
@@ -30,6 +31,65 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
+// ---------------------------------------------------------------------------
+// Era → Mapbox style mapping
+// Each decade gets a visually distinct style to convey the period feel.
+// ---------------------------------------------------------------------------
+const ERA_MAP_STYLES: Record<number, string> = {
+  2020: 'mapbox://styles/mapbox/streets-v12', // Vibrant & modern
+  2010: 'mapbox://styles/mapbox/light-v11', // Clean minimalist
+  2000: 'mapbox://styles/mapbox/outdoors-v12', // Detailed outdoors
+  1990: 'mapbox://styles/mapbox/satellite-streets-v12', // Classic photo map
+  1980: 'mapbox://styles/mapbox/satellite-streets-v12',
+  1970: 'mapbox://styles/mapbox/satellite-v9', // Vintage satellite
+  1960: 'mapbox://styles/mapbox/satellite-v9',
+  1950: 'mapbox://styles/mapbox/satellite-v9',
+  1940: 'mapbox://styles/mapbox/satellite-v9',
+};
+const DEFAULT_MAP_STYLE = 'mapbox://styles/mapbox/streets-v12';
+
+const ERA_OVERLAY: Record<number, { label: string; badge: string }> = {
+  2020: { label: '2020s', badge: 'bg-sky-100 text-sky-800 border-sky-200' },
+  2010: {
+    label: '2010s',
+    badge: 'bg-slate-100 text-slate-700 border-slate-200',
+  },
+  2000: {
+    label: '2000s',
+    badge: 'bg-green-100 text-green-800 border-green-200',
+  },
+  1990: {
+    label: '1990s',
+    badge: 'bg-amber-100 text-amber-800 border-amber-200',
+  },
+  1980: {
+    label: '1980s',
+    badge: 'bg-orange-100 text-orange-800 border-orange-200',
+  },
+  1970: {
+    label: '1970s',
+    badge: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  },
+  1960: {
+    label: '1960s',
+    badge: 'bg-stone-100 text-stone-700 border-stone-200',
+  },
+  1950: {
+    label: '1950s',
+    badge: 'bg-stone-100 text-stone-700 border-stone-200',
+  },
+  1940: {
+    label: '1940s',
+    badge: 'bg-stone-100 text-stone-700 border-stone-200',
+  },
+};
+
+/** Distance threshold (degrees) — if map center is already within this of the target, skip flyTo. */
+const FLY_TO_THRESHOLD = 0.0001;
+
+/** Delay (ms) after closing BatchesModal before starting flyTo, so the Dialog close animation completes. */
+const MODAL_CLOSE_DELAY = 300;
+
 export function MapComponent() {
   const router = useRouter();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -37,8 +97,10 @@ export function MapComponent() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [addMemoryOpen, setAddMemoryOpen] = useState(false);
+  const [addMemoryEra, setAddMemoryEra] = useState<number | null>(null);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [batchesModalOpen, setBatchesModalOpen] = useState(false);
+  const [activeMapEra, setActiveMapEra] = useState(2020);
   const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(
     null
   );
@@ -52,11 +114,21 @@ export function MapComponent() {
   const memoryMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const memoryRootsRef = useRef<Root[]>([]);
 
+  // Pending memory for the flyTo → open detail flow
+  const pendingMemoryRef = useRef<MemoryWithCoordinates | null>(null);
+
   const { data: countsData } = useMemoryCountsByLandmark();
   const memoryCounts = useMemo(() => countsData?.data ?? {}, [countsData]);
 
   const { data: memoriesData } = useAllMemoriesWithCoordinates();
   const memories = useMemo(() => memoriesData?.data ?? [], [memoriesData]);
+
+  // Only show memory pins for the active era (based on batch tag)
+  const eraFilteredMemories = useMemo(() => {
+    return memories.filter(
+      (m) => getEraFromBatchTag(m.tags ?? [], m.createdAt) === activeMapEra
+    );
+  }, [memories, activeMapEra]);
 
   // Keep a stable ref for the click handler so detached roots always call the latest version
   const handleClickRef = useRef<(landmark: Landmark) => void>(() => {});
@@ -84,7 +156,104 @@ export function MapComponent() {
     handleMemoryClickRef.current(memory);
   }, []);
 
-  useEffect(() => {
+  // ---------------------------------------------------------------------------
+  // Batches → FlyTo → Detail handler
+  // ---------------------------------------------------------------------------
+  const handleBatchesMemorySelected = useCallback(
+    (memory: MemoryWithCoordinates) => {
+      // Close the batches modal (already done by BatchesModal, but ensure state is synced)
+      setBatchesModalOpen(false);
+
+      // Cancel any previous pending flyTo
+      pendingMemoryRef.current = memory;
+
+      const map = mapRef.current;
+
+      // Fallback: if map isn't ready, just open the detail modal directly
+      if (!map) {
+        setSelectedMemory(memory);
+        setMemoryDetailOpen(true);
+        pendingMemoryRef.current = null;
+        return;
+      }
+
+      const memoryEra = getEraFromBatchTag(memory.tags ?? [], memory.createdAt);
+      const needsEraSwitch = memoryEra !== activeMapEra;
+
+      const targetLng = memory.location.longitude;
+      const targetLat = memory.location.latitude;
+
+      // Check if the map is already centered on the target
+      const center = map.getCenter();
+      const isAlreadyCentered =
+        Math.abs(center.lng - targetLng) < FLY_TO_THRESHOLD &&
+        Math.abs(center.lat - targetLat) < FLY_TO_THRESHOLD &&
+        !needsEraSwitch;
+
+      // Helper: fly to the memory location, then open the detail modal
+      const flyAndOpen = () => {
+        // Guard: if a different memory was selected in the meantime, bail
+        if (pendingMemoryRef.current?.id !== memory.id) return;
+
+        if (isAlreadyCentered) {
+          // Already there — open immediately
+          setSelectedMemory(memory);
+          setMemoryDetailOpen(true);
+          pendingMemoryRef.current = null;
+          return;
+        }
+
+        const onMoveEnd = () => {
+          map.off('moveend', onMoveEnd);
+          // Guard against stale events
+          if (pendingMemoryRef.current?.id !== memory.id) return;
+          setSelectedMemory(memory);
+          setMemoryDetailOpen(true);
+          pendingMemoryRef.current = null;
+        };
+
+        map.on('moveend', onMoveEnd);
+
+        map.flyTo({
+          center: [targetLng, targetLat],
+          zoom: 20,
+          duration: 1500,
+        });
+      };
+
+      // Delay to let the BatchesModal Dialog close animation finish
+      setTimeout(() => {
+        // Guard: if a different memory was selected in the meantime, bail
+        if (pendingMemoryRef.current?.id !== memory.id) return;
+
+        if (needsEraSwitch) {
+          // Switch era — this triggers a setStyle call which reloads the map style.
+          // We need to wait for 'style.load' before calling flyTo.
+          setActiveMapEra(memoryEra);
+
+          const onStyleLoad = () => {
+            map.off('style.load', onStyleLoad);
+            // Guard: different memory selected?
+            if (pendingMemoryRef.current?.id !== memory.id) return;
+            flyAndOpen();
+          };
+
+          map.on('style.load', onStyleLoad);
+        } else {
+          flyAndOpen();
+        }
+      }, MODAL_CLOSE_DELAY);
+    },
+    [activeMapEra]
+  );
+
+  // Clear pending memory when user opens another modal or performs an action
+  // that should cancel the flyTo flow
+  const cancelPendingFlyTo = useCallback(() => {
+    pendingMemoryRef.current = null;
+  }, []);
+
+  useLayoutEffect(() => {
     setIsClient(true);
     if (!MAPBOX_TOKEN) {
       setMapError('Mapbox token not configured');
@@ -184,6 +353,13 @@ export function MapComponent() {
     }
   }, [isClient, handleLandmarkClick, mapError]);
 
+  // Switch Mapbox style when the active era changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const targetStyle = ERA_MAP_STYLES[activeMapEra] ?? DEFAULT_MAP_STYLE;
+    mapRef.current.setStyle(targetStyle);
+  }, [activeMapEra]);
+
   // Re-render marker roots when memory counts update or visibility changes
   useEffect(() => {
     for (const { root, landmark } of markerRootsRef.current) {
@@ -237,8 +413,8 @@ export function MapComponent() {
       oldRoots.forEach((r) => r.unmount());
     }, 0);
 
-    // Render memory pins
-    memories.forEach((memory) => {
+    // Render memory pins (only for the active era)
+    eraFilteredMemories.forEach((memory) => {
       if (!memory.mediaURL) return;
 
       const el = document.createElement('div');
@@ -259,7 +435,13 @@ export function MapComponent() {
 
       memoryMarkersRef.current.push(marker);
     });
-  }, [memories, handleMemoryClick, showMemoryPins]);
+  }, [
+    eraFilteredMemories,
+    eraFilteredMemories.length,
+    memories.length,
+    handleMemoryClick,
+    showMemoryPins,
+  ]);
 
   if (!isClient) {
     return <div className="relative h-full w-full" />;
@@ -283,6 +465,22 @@ export function MapComponent() {
   return (
     <div className="relative h-full w-full">
       <div ref={mapContainerRef} className="h-full w-full" />
+
+      {/* Era indicator — bottom left, above Mapbox attribution */}
+      {(() => {
+        const era = ERA_OVERLAY[activeMapEra];
+        if (!era) return null;
+        return (
+          <div className="absolute bottom-8 left-4 z-10">
+            <div
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold shadow-sm backdrop-blur-sm ${era.badge}`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+              {era.label} Map
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Add Memory Button - Bottom Right */}
       <div className="absolute bottom-6 right-6 z-10">
@@ -313,16 +511,37 @@ export function MapComponent() {
       />
 
       {/* Group Modal */}
-      <GroupModal open={groupModalOpen} onOpenChange={setGroupModalOpen} />
+      <GroupModal
+        open={groupModalOpen}
+        onOpenChange={(isOpen) => {
+          setGroupModalOpen(isOpen);
+          if (isOpen) cancelPendingFlyTo();
+        }}
+      />
 
       {/* Batches Modal */}
       <BatchesModal
         open={batchesModalOpen}
         onOpenChange={setBatchesModalOpen}
+        activeMapEra={activeMapEra}
+        memories={memories}
+        onAddMemory={(era) => {
+          setBatchesModalOpen(false);
+          setAddMemoryEra(era ?? activeMapEra);
+          setAddMemoryOpen(true);
+        }}
+        onMemorySelected={handleBatchesMemorySelected}
       />
 
       {/* Add Memory Modal */}
-      <AddMemoryModal open={addMemoryOpen} onOpenChange={setAddMemoryOpen} />
+      <AddMemoryModal
+        open={addMemoryOpen}
+        onOpenChange={(isOpen) => {
+          setAddMemoryOpen(isOpen);
+          if (!isOpen) setAddMemoryEra(null);
+        }}
+        defaultEra={addMemoryEra}
+      />
 
       {/* Landmark Memories Panel */}
       <LandmarkMemoriesPanel
