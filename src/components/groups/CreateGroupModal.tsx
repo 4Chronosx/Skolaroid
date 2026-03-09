@@ -20,16 +20,16 @@ import {
   type GroupVisibility,
   createGroupSchema,
 } from '@/lib/types/group';
-import { useCreateGroup } from '@/lib/hooks/useCreateGroup';
+import { useCreateGroup, type GroupResponse } from '@/lib/hooks/useCreateGroup';
 
 // ─── PROPS ──────────────────────────────────────────────────────────
 
 interface CreateGroupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // we intentionally use Record<string, unknown> here because the backend response (GroupResponse)
-  // contains more fields than our frontend types. Callers can narrow it.
-  onCreated: (group: Record<string, unknown>) => void;
+  // Callback receives the full GroupResponse from the backend.
+  // Callers can transform it to their own types as needed.
+  onCreated: (group: GroupResponse) => void;
 }
 
 // ─── CUSTOM DROPDOWN COMPONENT ──────────────────────────────────────

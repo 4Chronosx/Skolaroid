@@ -3,14 +3,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CreateGroupServerInput } from '@/lib/schemas';
 
-interface GroupMemberResponse {
+export interface GroupMemberResponse {
   id: string;
   firstName: string | null;
   lastName: string | null;
   email: string;
 }
 
-interface GroupResponse {
+export interface GroupResponse {
   id: string;
   name: string;
   description: string | null;
