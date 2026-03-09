@@ -781,7 +781,6 @@ export function MapComponent() {
           }
         }}
         defaultEra={addMemoryEra}
-        onRequestMapSelection={handleRequestMapSelection}
       />
 
       {/* Map Location Selector Overlay */}
