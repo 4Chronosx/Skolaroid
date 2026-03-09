@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useRouter } from 'next/navigation';
@@ -50,10 +51,12 @@ export function AccountMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {userName && (
-          <div className="px-2 py-1.5 text-sm font-medium text-gray-700">
-            {userName}
-          </div>
+          <DropdownMenuItem onClick={() => router.push('/protected/profile')}>
+            <User className="mr-2 h-4 w-4" />
+            <span>{userName}</span>
+          </DropdownMenuItem>
         )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log Out</span>
