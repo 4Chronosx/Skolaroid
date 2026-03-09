@@ -271,7 +271,6 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
                   {activeTab === 'members' && (
                     <MembersTab
                       members={selectedGroup.members}
-                      memberCount={selectedGroup.memberCount}
                       isOwner={isOwner}
                     />
                   )}
