@@ -25,6 +25,18 @@ export function getEraFromBatchTag(
   return 2020;
 }
 
+/**
+ * Formats a vote count for compact display:
+ *   < 1 000        → exact number  (e.g. "42")
+ *   1 000–999 999  → one decimal k  (e.g. "1.2k")
+ *   ≥ 1 000 000    → one decimal m  (e.g. "3.5m")
+ */
+export function formatVoteCount(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}m`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
+  return String(count);
+}
+
 // This check can be removed, it is just for tutorial purposes
 export const hasEnvVars =
   process.env.NEXT_PUBLIC_SUPABASE_URL &&

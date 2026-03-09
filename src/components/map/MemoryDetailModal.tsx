@@ -1,18 +1,11 @@
 'use client';
 
-import {
-  Copy,
-  Heart,
-  Share,
-  MoreHorizontal,
-  Globe,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { MoreHorizontal, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogTitle } from '@/components/ui/dialog';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { MemoryWithCoordinates } from '@/lib/hooks/useAllMemoriesWithCoordinates';
+import { ActionBar } from '@/components/map/ActionBar';
 import Image from 'next/image';
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -487,27 +480,8 @@ export function MemoryDetailModal({
                             </p>
                           </div>
 
-                          {/* Action icons */}
-                          <div className="flex items-center justify-center gap-4">
-                            <button
-                              className="text-slate-600 hover:text-slate-800"
-                              aria-label="Copy"
-                            >
-                              <Copy className="h-5 w-5" />
-                            </button>
-                            <button
-                              className="text-slate-600 hover:text-slate-800"
-                              aria-label="Like"
-                            >
-                              <Heart className="h-5 w-5" />
-                            </button>
-                            <button
-                              className="text-slate-600 hover:text-slate-800"
-                              aria-label="Share"
-                            >
-                              <Share className="h-5 w-5" />
-                            </button>
-                          </div>
+                          {/* Action bar */}
+                          <ActionBar memory={baseRightMemory} />
 
                           {/* Comments section */}
                           <div className="flex-1">
@@ -702,27 +676,8 @@ export function MemoryDetailModal({
                                   </p>
                                 </div>
 
-                                {/* Action icons */}
-                                <div className="flex items-center justify-center gap-4">
-                                  <button
-                                    className="text-slate-600 hover:text-slate-800"
-                                    aria-label="Copy"
-                                  >
-                                    <Copy className="h-5 w-5" />
-                                  </button>
-                                  <button
-                                    className="text-slate-600 hover:text-slate-800"
-                                    aria-label="Like"
-                                  >
-                                    <Heart className="h-5 w-5" />
-                                  </button>
-                                  <button
-                                    className="text-slate-600 hover:text-slate-800"
-                                    aria-label="Share"
-                                  >
-                                    <Share className="h-5 w-5" />
-                                  </button>
-                                </div>
+                                {/* Action bar */}
+                                <ActionBar memory={memory} />
 
                                 {/* Comments section */}
                                 <div className="flex-1">
@@ -823,27 +778,8 @@ export function MemoryDetailModal({
                                 </p>
                               </div>
 
-                              {/* Action icons */}
-                              <div className="flex items-center justify-center gap-4">
-                                <button
-                                  className="text-slate-600 hover:text-slate-800"
-                                  aria-label="Copy"
-                                >
-                                  <Copy className="h-5 w-5" />
-                                </button>
-                                <button
-                                  className="text-slate-600 hover:text-slate-800"
-                                  aria-label="Like"
-                                >
-                                  <Heart className="h-5 w-5" />
-                                </button>
-                                <button
-                                  className="text-slate-600 hover:text-slate-800"
-                                  aria-label="Share"
-                                >
-                                  <Share className="h-5 w-5" />
-                                </button>
-                              </div>
+                              {/* Action bar */}
+                              <ActionBar memory={cachedMemory!} />
 
                               {/* Comments section */}
                               <div className="flex-1">
