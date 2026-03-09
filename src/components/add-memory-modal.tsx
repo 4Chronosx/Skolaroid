@@ -32,8 +32,6 @@ import {
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCreateCustomLocation } from '@/lib/hooks/useCreateCustomLocation';
-import type { MapLocationSelection } from '@/lib/types/map';
 
 // =============================================================================
 // TYPES
@@ -63,11 +61,6 @@ interface AddMemoryModalProps {
   onOpenChange: (open: boolean) => void;
   /** Optional era (decade start year) for context display, e.g. 2020. */
   defaultEra?: number | null;
-  /** Callback to enter map location selection mode. */
-  onRequestMapSelection?: (
-    mode: 'landmark' | 'custom',
-    onSelect: (selection: MapLocationSelection) => void
-  ) => void;
 }
 
 // =============================================================================
@@ -181,7 +174,6 @@ export function AddMemoryModal({
   onOpenChange,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   defaultEra,
-  onRequestMapSelection,
 }: AddMemoryModalProps) {
   // ---------------------------------------------------------------------------
   // State
@@ -209,14 +201,8 @@ export function AddMemoryModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const captionRef = useRef<HTMLTextAreaElement>(null);
 
-  const [selectedLocationName, setSelectedLocationName] = useState<
-    string | null
-  >(null);
-
   const { mutate: createMemory, isPending } = useCreateMemory();
   const { data: locationsData } = useLocations();
-  const { mutateAsync: createCustomLocation, isPending: isCreatingLocation } =
-    useCreateCustomLocation();
   const locations = useMemo(
     () => locationsData?.data ?? [],
     [locationsData?.data]
@@ -527,42 +513,6 @@ export function AddMemoryModal({
     resetState,
     onOpenChange,
   ]);
-
-  // ---------------------------------------------------------------------------
-  // Map selection handler
-  // ---------------------------------------------------------------------------
-
-  const handleMapSelection = useCallback(
-    async (selection: MapLocationSelection) => {
-      if (selection.mode === 'landmark' && selection.locationId) {
-        setSelectedLocationName(
-          selection.landmark?.name ?? 'Selected Landmark'
-        );
-      } else if (selection.mode === 'custom' && selection.customLocation) {
-        try {
-          const result = await createCustomLocation({
-            buildingName: selection.customLocation.buildingName,
-            latitude: selection.customLocation.latitude,
-            longitude: selection.customLocation.longitude,
-          });
-          setSelectedLocationName(result.data.buildingName);
-        } catch (err) {
-          console.error(
-            '[AddMemoryModal] Failed to create custom location:',
-            err
-          );
-        }
-      }
-    },
-    [createCustomLocation]
-  );
-
-  const handleSelectOnMap = useCallback(
-    (mode: 'landmark' | 'custom') => {
-      onRequestMapSelection?.(mode, handleMapSelection);
-    },
-    [onRequestMapSelection, handleMapSelection]
-  );
 
   // ---------------------------------------------------------------------------
   // Placeholder handlers
