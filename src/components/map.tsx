@@ -115,8 +115,8 @@ export function MapComponent() {
   const [selectedMemory, setSelectedMemory] =
     useState<MemoryWithCoordinates | null>(null);
   const [memoryDetailOpen, setMemoryDetailOpen] = useState(false);
-  const [showLandmarks, setShowLandmarks] = useState(true);
-  const [showMemoryPins, setShowMemoryPins] = useState(false);
+  const [showLandmarks, setShowLandmarks] = useState(false);
+  const [showMemoryPins, setShowMemoryPins] = useState(true);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const markerRootsRef = useRef<{ root: Root; landmark: Landmark }[]>([]);
   const memoryMarkersRef = useRef<mapboxgl.Marker[]>([]);
