@@ -1,5 +1,6 @@
 'use client';
 
+// Account menu component for user profile and logout
 import { User, LogOut } from 'lucide-react';
 import { useUserAuth } from '@/hooks/useUserAuth';
 import {

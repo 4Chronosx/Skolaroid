@@ -90,6 +90,23 @@ export const memoriesByLocationQuerySchema = z.object({
 });
 
 // ============================================================================
+// VOTE SCHEMAS
+// ============================================================================
+
+/** Payload for toggling a vote — userId comes from server-side auth, never the client. */
+export const toggleVoteSchema = z.object({
+  memoryId: z.string().uuid('Invalid memory ID'),
+});
+
+/** Query params for fetching vote status on a single memory. */
+export const voteStatusQuerySchema = z.object({
+  memoryId: z.string().uuid('Invalid memory ID'),
+});
+
+export type ToggleVoteInput = z.infer<typeof toggleVoteSchema>;
+export type VoteStatusQuery = z.infer<typeof voteStatusQuerySchema>;
+
+// ============================================================================
 // MEMORY TYPE EXPORTS
 // ============================================================================
 
