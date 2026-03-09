@@ -882,10 +882,10 @@ export function AddMemoryModal({
                   {isPending
                     ? 'Submitting...'
                     : isCreatingLocation
-                    ? 'Creating location...'
-                    : isLastStep
-                    ? 'Submit'
-                    : 'Next'}
+                      ? 'Creating location...'
+                      : isLastStep
+                        ? 'Submit'
+                        : 'Next'}
                 </Button>
               </div>
             </div>

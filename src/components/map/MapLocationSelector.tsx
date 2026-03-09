@@ -96,9 +96,12 @@ export function MapLocationSelector({
 
   // Auto-timeout: restore modal after 2 minutes of inactivity
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onCancel();
-    }, 2 * 60 * 1000);
+    const timer = setTimeout(
+      () => {
+        onCancel();
+      },
+      2 * 60 * 1000
+    );
     return () => clearTimeout(timer);
   }, [onCancel]);
 
@@ -127,7 +130,7 @@ export function MapLocationSelector({
 
       {/* Out-of-bounds error toast */}
       {outOfBoundsError && (
-        <div className="absolute left-1/2 top-20 z-20 -translate-x-1/2 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute left-1/2 top-20 z-20 -translate-x-1/2 duration-200 animate-in fade-in slide-in-from-top-2">
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 shadow-lg">
             <p className="text-sm font-medium text-red-700">
               Please select a location within campus

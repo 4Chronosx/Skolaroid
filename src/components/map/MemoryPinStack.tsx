@@ -124,9 +124,7 @@ export function MemoryPinStack({ memories, onClick }: MemoryPinStackProps) {
         className="absolute -right-2 -top-2 z-50 flex h-6 min-w-6 items-center justify-center rounded-full bg-skolaroid-blue px-1.5 text-[10px] font-bold text-white shadow-md ring-2 ring-white transition-opacity duration-200"
         style={{ opacity: isHovered && overflow <= 0 ? 0 : 1 }}
       >
-        {isHovered && overflow > 0
-          ? `+${overflow}`
-          : memories.length}
+        {isHovered && overflow > 0 ? `+${overflow}` : memories.length}
       </div>
 
       {/* Pointer at the bottom (only when not fanned) */}

@@ -403,7 +403,7 @@ export function MapComponent() {
         map.addControl(new mapboxgl.NavigationControl(), 'top-left');
         map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
 
-        // Render landmark markers
+        // Create landmark markers (but don't add to map yet — visibility effect handles this)
         LANDMARKS.forEach((landmark) => {
           const el = document.createElement('div');
           const root = createRoot(el);
@@ -418,8 +418,8 @@ export function MapComponent() {
           markerRootsRef.current.push({ root, landmark });
 
           const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat(landmark.coordinates)
-            .addTo(map);
+            .setLngLat(landmark.coordinates);
+          // Don't add to map here — let visibility effect handle it
 
           markersRef.current.push(marker);
         });
@@ -481,14 +481,21 @@ export function MapComponent() {
     }
   }, [memoryCounts, handleLandmarkClick]);
 
-  // Toggle landmark marker visibility
+  // Toggle landmark marker visibility by adding/removing from map
   useEffect(() => {
-    markersRef.current.forEach((marker) => {
-      const element = marker.getElement();
-      if (element) {
-        element.style.display = showLandmarks ? 'block' : 'none';
-      }
-    });
+    if (!mapRef.current) return;
+
+    if (showLandmarks) {
+      // Add landmark markers to the map
+      markersRef.current.forEach((marker) => {
+        marker.addTo(mapRef.current!);
+      });
+    } else {
+      // Remove landmark markers from the map
+      markersRef.current.forEach((marker) => {
+        marker.remove();
+      });
+    }
   }, [showLandmarks]);
 
   // Toggle memory pin marker visibility
