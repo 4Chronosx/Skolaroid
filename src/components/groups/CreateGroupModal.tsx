@@ -27,7 +27,9 @@ import { useCreateGroup } from '@/lib/hooks/useCreateGroup';
 interface CreateGroupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: () => void;
+  // we intentionally use Record<string, unknown> here because the backend response (GroupResponse)
+  // contains more fields than our frontend types. Callers can narrow it.
+  onCreated: (group: Record<string, unknown>) => void;
 }
 
 // ─── CUSTOM DROPDOWN COMPONENT ──────────────────────────────────────
@@ -256,8 +258,8 @@ export function CreateGroupModal({
         description: description.trim() || undefined,
       },
       {
-        onSuccess: () => {
-          onCreated();
+        onSuccess: (data) => {
+          onCreated(data);
           handleClose();
         },
         onError: (err) => {
