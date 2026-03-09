@@ -1,182 +1,187 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import {
+  X,
+  Users2,
+  Plus,
+  Link2,
+  Globe,
+  Lock,
+  ChevronRight,
+} from 'lucide-react';
+import { type Group, MOCK_GROUPS } from '@/lib/types/group';
+import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
+import { useGroupToast } from '@/components/groups/GroupToast';
 
-type Tab = 'uploads' | 'users' | 'admins';
+// ─── PROPS ──────────────────────────────────────────────────────────
 
 interface GroupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const mockGroups = [
-  { id: '1', name: 'BSCS 2023' },
-  { id: '2', name: 'BSIT 2022' },
-];
+// ─── COMPONENT ──────────────────────────────────────────────────────
 
 export function GroupModal({ open, onOpenChange }: GroupModalProps) {
-  const [currentTab, setCurrentTab] = useState<Tab>('uploads');
-  const [groupSelectorOpen, setGroupSelectorOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState(mockGroups[0]);
+  const router = useRouter();
+  const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [pasteInviteOpen, setPasteInviteOpen] = useState(false); // TODO: Implement paste invite link modal in future sprint
+  const { showSuccess, ToastPortal } = useGroupToast();
 
-  const tabs: Tab[] = ['uploads', 'users', 'admins'];
-  const tabLabels: Record<Tab, string> = {
-    uploads: 'Uploads',
-    users: 'Users',
-    admins: 'Admins',
+  const handleCreated = (newGroup: Group) => {
+    setGroups((prev) => [newGroup, ...prev]);
+    showSuccess('Group created successfully!');
   };
 
-  const handleCancel = () => {
+  const handleGroupClick = (group: Group) => {
     onOpenChange(false);
-    setCurrentTab('uploads');
-    setGroupSelectorOpen(false);
+    router.push(`/groups/${group.id}`);
   };
 
-  const handleNext = () => {
-    // TODO: Implement next/save logic
-    console.log('Next clicked on tab:', currentTab);
+  const handlePasteInvite = () => {
+    // TODO: Implement paste invite link functionality in future sprint
+    console.log('Paste invite link clicked');
+    setPasteInviteOpen(!pasteInviteOpen);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex h-[500px] max-w-2xl gap-0 overflow-hidden p-0"
-        showCloseButton={false}
-      >
-        <DialogTitle className="sr-only">Group</DialogTitle>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="flex max-w-md gap-0 overflow-hidden p-0"
+          showCloseButton={false}
+        >
+          <DialogTitle className="sr-only">Your Groups</DialogTitle>
 
-        {/* Tabs Sidebar */}
-        <div className="relative flex w-48 flex-col border-r bg-gray-50">
-          {/* Group Selector */}
-          <div className="relative border-b p-4">
-            <button
-              onClick={() => setGroupSelectorOpen(!groupSelectorOpen)}
-              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-100"
-            >
-              <span className="truncate">{selectedGroup.name}</span>
-              {groupSelectorOpen ? (
-                <ChevronUp size={16} className="shrink-0 text-gray-500" />
-              ) : (
-                <ChevronDown size={16} className="shrink-0 text-gray-500" />
-              )}
-            </button>
+          <div className="flex w-full flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b px-6 pb-4 pt-5">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Your Groups
+              </h2>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-            {/* Floating dropdown */}
-            {groupSelectorOpen && (
+            {/* Body */}
+            {groups.length === 0 ? (
+              /* Empty State */
+              <div className="space-y-4 px-6 py-12 text-center">
+                <Users2 size={48} className="mx-auto text-gray-300" />
+                <h3 className="text-base font-semibold text-gray-700">
+                  No groups yet
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Create your first group to start sharing memories with your
+                  batch or circle.
+                </p>
+                <Button
+                  onClick={() => setCreateModalOpen(true)}
+                  className="w-full bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
+                >
+                  Create Your First Group
+                </Button>
+              </div>
+            ) : (
+              /* Groups List */
               <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setGroupSelectorOpen(false)}
-                />
-                <div className="absolute left-2 right-2 top-full z-20 rounded-md border bg-white py-1 shadow-lg">
-                  {mockGroups.map((group) => (
-                    <button
-                      key={group.id}
-                      onClick={() => {
-                        setSelectedGroup(group);
-                        setGroupSelectorOpen(false);
-                      }}
-                      className={`block w-full px-3 py-1.5 text-left text-sm transition-colors ${
-                        selectedGroup.id === group.id
-                          ? 'bg-skolaroid-blue/10 text-skolaroid-blue'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      {group.name}
-                    </button>
-                  ))}
-                  <div className="my-1 border-t" />
-                  <button
-                    onClick={() => {
-                      // TODO: Implement create new group
-                      console.log('Create new group');
-                    }}
-                    className="flex w-full items-center gap-1.5 px-3 py-1.5 text-sm text-skolaroid-blue transition-colors hover:bg-skolaroid-blue/10"
+                {/* Action buttons */}
+                <div className="flex items-center gap-2 px-6 pb-3 pt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => setCreateModalOpen(true)}
+                    className="gap-1.5 bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
                   >
                     <Plus size={14} />
-                    Create New
-                  </button>
+                    Create Group
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handlePasteInvite}
+                    className="gap-1.5"
+                  >
+                    <Link2 size={14} />
+                    Paste Invite Link
+                  </Button>
+                </div>
+
+                {/* Scrollable group list */}
+                <div className="scrollbar-hide max-h-72 space-y-1 overflow-y-auto px-3 pb-3">
+                  {groups.map((group) => (
+                    <button
+                      key={group.id}
+                      onClick={() => handleGroupClick(group)}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-gray-50"
+                    >
+                      {/* Avatar */}
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-skolaroid-blue/10 text-sm font-semibold text-skolaroid-blue">
+                        {group.name.charAt(0)}
+                      </div>
+
+                      {/* Info */}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-gray-900">
+                          {group.name}
+                        </p>
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          {group.privacy === 'PUBLIC' ? (
+                            <Globe size={12} className="shrink-0" />
+                          ) : (
+                            <Lock size={12} className="shrink-0" />
+                          )}
+                          <span>
+                            {group.privacy === 'PUBLIC' ? 'Public' : 'Private'}
+                          </span>
+                          <span>·</span>
+                          <span>{group.memberCount} members</span>
+                        </p>
+                      </div>
+
+                      {/* Chevron */}
+                      <ChevronRight
+                        size={16}
+                        className="ml-auto shrink-0 text-gray-400"
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div className="border-t px-6 py-4">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Close
+                  </Button>
                 </div>
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
 
-          {/* Tab List */}
-          <div className="flex-1 p-6">
-            <div className="space-y-4">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setCurrentTab(tab)}
-                  className={`block w-full text-left text-sm font-medium transition-colors ${
-                    currentTab === tab
-                      ? 'text-skolaroid-blue'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {tabLabels[tab]}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        onCreated={handleCreated}
+      />
 
-        {/* Divider Line */}
-        <div className="w-px bg-gray-200" />
-
-        {/* Content Area */}
-        <div className="flex flex-1 flex-col">
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {currentTab === 'uploads' && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700">Uploads</h3>
-                <p className="text-sm text-gray-500">
-                  Manage uploads for {selectedGroup.name}.
-                </p>
-              </div>
-            )}
-
-            {currentTab === 'users' && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700">Users</h3>
-                <p className="text-sm text-gray-500">
-                  Manage users in {selectedGroup.name}.
-                </p>
-              </div>
-            )}
-
-            {currentTab === 'admins' && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700">Admins</h3>
-                <p className="text-sm text-gray-500">
-                  Manage admins for {selectedGroup.name}.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Footer with Buttons */}
-          <div className="flex justify-end gap-3 border-t bg-white px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={handleCancel}
-              className="text-gray-700"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleNext}
-              className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      {/* Toast Portal */}
+      <ToastPortal />
+    </>
   );
 }
