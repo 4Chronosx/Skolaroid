@@ -113,6 +113,7 @@ export function AddMemoryModal({
   open,
   onOpenChange,
   defaultEra,
+  onRequestMapSelection,
 }: AddMemoryModalProps) {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
@@ -120,6 +121,10 @@ export function AddMemoryModal({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [hasAgreed, setHasAgreed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [selectedLocationName, setSelectedLocationName] = useState<string | null>(
+    null
+  );
 
   const { mutate: createMemory, isPending } = useCreateMemory();
   const { data: locationsData, isLoading: locationsLoading } = useLocations();
@@ -289,6 +294,7 @@ export function AddMemoryModal({
     setErrors({});
     setShowConfirmation(false);
     setHasAgreed(false);
+    setSelectedLocationName(null);
   }, [onOpenChange, formData.mediaPreviewUrl]);
 
   // ---------------------------------------------------------------------------
@@ -348,6 +354,30 @@ export function AddMemoryModal({
   ]);
 
   // ---------------------------------------------------------------------------
+  // Map selection handler
+  // ---------------------------------------------------------------------------
+
+  const handleMapSelection = useCallback(
+    (selection: MapLocationSelection) => {
+      if (selection.mode === 'landmark' && selection.locationId) {
+        updateField('locationId', selection.locationId);
+        setSelectedLocationName(selection.landmark?.name ?? 'Selected Landmark');
+      } else if (selection.mode === 'custom' && selection.customLocation) {
+        // Custom location — will be handled in Step 4
+        setSelectedLocationName(selection.customLocation.buildingName);
+      }
+    },
+    [updateField]
+  );
+
+  const handleSelectOnMap = useCallback(
+    (mode: 'landmark' | 'custom') => {
+      onRequestMapSelection?.(mode, handleMapSelection);
+    },
+    [onRequestMapSelection, handleMapSelection]
+  );
+
+  // ---------------------------------------------------------------------------
   // Step renderers
   // ---------------------------------------------------------------------------
 
@@ -405,45 +435,120 @@ export function AddMemoryModal({
   );
 
   const renderLandmarkStep = () => (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <label className="block text-sm font-medium text-gray-700">
-        Select a Landmark
+        Select a Location
       </label>
       {errors.locationId && (
         <p className="text-sm text-red-500">{errors.locationId}</p>
       )}
-      <div className="space-y-2">
-        {locationsLoading && (
-          <p className="text-sm text-gray-400">Loading landmarks…</p>
-        )}
-        {locations.map((location) => (
+
+      {/* Selected location display */}
+      {formData.locationId && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+          <MapPin className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-medium text-green-700">
+            {selectedLocationName ??
+              selectedLocation?.buildingName ??
+              'Location selected'}
+          </span>
           <button
-            key={location.id}
             type="button"
-            onClick={() => updateField('locationId', location.id)}
-            className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
-              formData.locationId === location.id
-                ? 'border-skolaroid-blue bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
+            onClick={() => {
+              updateField('locationId', '');
+              setSelectedLocationName(null);
+            }}
+            className="ml-auto text-green-600 hover:text-green-800"
           >
-            <MapPin
-              className={`mt-0.5 h-4 w-4 shrink-0 ${
-                formData.locationId === location.id
-                  ? 'text-skolaroid-blue'
-                  : 'text-gray-400'
-              }`}
-            />
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Map Selection Buttons */}
+      {onRequestMapSelection && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => handleSelectOnMap('landmark')}
+            className="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-skolaroid-blue bg-blue-50/50 p-4 text-left transition-colors hover:bg-blue-50"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-skolaroid-blue text-white">
+              <MapPin className="h-5 w-5" />
+            </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">
-                {location.buildingName}
+              <p className="text-sm font-semibold text-skolaroid-blue">
+                Select Landmark on Map
               </p>
-              {location.description && (
-                <p className="text-xs text-gray-500">{location.description}</p>
-              )}
+              <p className="text-xs text-gray-500">
+                Click a landmark directly on the interactive map
+              </p>
             </div>
           </button>
-        ))}
+
+          <button
+            type="button"
+            onClick={() => handleSelectOnMap('custom')}
+            className="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50 p-4 text-left transition-colors hover:border-gray-400 hover:bg-gray-50"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-500 text-white">
+              <MapPin className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">
+                Pinpoint Custom Location
+              </p>
+              <p className="text-xs text-gray-500">
+                Click anywhere on the map to drop a pin
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* List Selection Fallback */}
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+          Or select from list
+        </p>
+        <div className="max-h-48 space-y-2 overflow-y-auto">
+          {locationsLoading && (
+            <p className="text-sm text-gray-400">Loading landmarks…</p>
+          )}
+          {locations.map((location) => (
+            <button
+              key={location.id}
+              type="button"
+              onClick={() => {
+                updateField('locationId', location.id);
+                setSelectedLocationName(location.buildingName);
+              }}
+              className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
+                formData.locationId === location.id
+                  ? 'border-skolaroid-blue bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <MapPin
+                className={`mt-0.5 h-4 w-4 shrink-0 ${
+                  formData.locationId === location.id
+                    ? 'text-skolaroid-blue'
+                    : 'text-gray-400'
+                }`}
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  {location.buildingName}
+                </p>
+                {location.description && (
+                  <p className="text-xs text-gray-500">
+                    {location.description}
+                  </p>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
