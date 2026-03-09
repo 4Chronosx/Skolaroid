@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
 import { Header } from '@/components/header';
@@ -8,7 +9,7 @@ import { GalleryMemoryCard } from '@/components/gallery/GalleryMemoryCard';
 import { useAllMemoriesWithCoordinates } from '@/lib/hooks/useAllMemoriesWithCoordinates';
 import { getEraFromBatchTag } from '@/lib/utils';
 
-export default function GalleryPage() {
+function GalleryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeEra = parseInt(searchParams.get('era') || '2020', 10);
@@ -151,5 +152,22 @@ export default function GalleryPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function GalleryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen flex-col bg-gray-50">
+          <Header />
+          <div className="flex flex-1 items-center justify-center pt-16">
+            <p className="text-lg text-gray-600">Loading gallery...</p>
+          </div>
+        </div>
+      }
+    >
+      <GalleryPageContent />
+    </Suspense>
   );
 }
