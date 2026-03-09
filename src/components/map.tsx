@@ -397,8 +397,10 @@ export function MapComponent() {
 
           markerRootsRef.current.push({ root, landmark });
 
-          const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat(landmark.coordinates);
+          const marker = new mapboxgl.Marker({
+            element: el,
+            anchor: 'bottom',
+          }).setLngLat(landmark.coordinates);
           // Don't add to map here — let visibility effect handle it
 
           markersRef.current.push(marker);
