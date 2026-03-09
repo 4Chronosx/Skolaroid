@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { createRoot, type Root } from 'react-dom/client';
 import { Plus } from 'lucide-react';
 import { AddMemoryModal } from './add-memory-modal';
-import { GroupModal } from './group-modal';
+import { GroupPanel } from './groups/GroupPanel';
 import { BatchesModal } from './batches-modal';
 import { ExpandableToolbar } from './expandable-toolbar';
 import { LandmarkMarker } from './map/LandmarkMarker';
@@ -542,8 +542,8 @@ export function MapComponent() {
         }}
       />
 
-      {/* Group Modal */}
-      <GroupModal
+      {/* Group Panel */}
+      <GroupPanel
         open={groupModalOpen}
         onOpenChange={(isOpen) => {
           setGroupModalOpen(isOpen);
