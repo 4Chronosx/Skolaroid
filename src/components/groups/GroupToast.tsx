@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useId } from 'react';
+import { useState, useCallback, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, XCircle } from 'lucide-react';
@@ -62,7 +62,12 @@ function ToastCard({
 
 export function useGroupToast(): GroupToastHook {
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [mounted, setMounted] = useState(false);
   const hookId = useId();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const show = useCallback(
     (message: string, type: ToastType) => {
@@ -89,7 +94,7 @@ export function useGroupToast(): GroupToastHook {
   const dismiss = useCallback(() => setToast(null), []);
 
   const ToastPortal: React.FC = useCallback(() => {
-    if (typeof window === 'undefined') return null;
+    if (!mounted) return null;
 
     return createPortal(
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-[200] -translate-x-1/2">
@@ -103,7 +108,7 @@ export function useGroupToast(): GroupToastHook {
       </div>,
       document.body
     );
-  }, [toast, dismiss]) as React.FC;
+  }, [toast, dismiss, mounted]) as React.FC;
 
   return { showSuccess, showError, ToastPortal };
 }

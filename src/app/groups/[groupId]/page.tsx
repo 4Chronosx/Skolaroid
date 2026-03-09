@@ -27,10 +27,21 @@ import {
   CalendarDays,
   FolderOpen,
   Image as ImageIcon,
+  MoreHorizontal,
+  LogOut,
+  ShieldOff,
+  ShieldCheck,
+  UserMinus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import {
   type Group,
   type GroupMember,
@@ -90,12 +101,52 @@ function TabPlaceholder({
 
 // ─── MEMBERS TAB ────────────────────────────────────────────────────
 
+type MenuAction = {
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  destructive?: boolean;
+};
+
+function getMemberMenuActions(
+  viewerIsOwner: boolean,
+  isSelf: boolean,
+  targetRole: GroupMember['role']
+): MenuAction[] {
+  if (viewerIsOwner) {
+    if (isSelf) {
+      return [
+        { label: 'Remove as Admin', icon: ShieldOff },
+        { label: 'Leave Group', icon: LogOut, destructive: true },
+      ];
+    }
+    if (targetRole === 'ADMIN') {
+      return [
+        { label: 'Remove as Admin', icon: ShieldOff },
+        { label: 'Remove from Group', icon: UserMinus, destructive: true },
+      ];
+    }
+    // MEMBER
+    return [
+      { label: 'Remove from Group', icon: UserMinus, destructive: true },
+      { label: 'Invite as Admin', icon: ShieldCheck },
+    ];
+  }
+  if (isSelf) {
+    return [{ label: 'Leave Group', icon: LogOut, destructive: true }];
+  }
+  return [];
+}
+
 function MembersTab({
   members,
   memberCount,
+  currentUserId,
+  isOwner,
 }: {
   members: GroupMember[];
   memberCount: number;
+  currentUserId: string;
+  isOwner: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -103,47 +154,86 @@ function MembersTab({
         Members ({memberCount})
       </h3>
       <div className="space-y-2">
-        {members.map((member) => (
-          <div
-            key={member.id}
-            className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-gray-50"
-          >
-            <Avatar className="h-9 w-9 shrink-0">
-              <AvatarImage src={member.avatarUrl ?? ''} alt={member.name} />
-              <AvatarFallback className="bg-skolaroid-blue/10 text-xs font-semibold text-skolaroid-blue">
-                {member.name.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+        {members.map((member) => {
+          const isSelf = member.id === currentUserId;
+          const menuActions = getMemberMenuActions(
+            isOwner,
+            isSelf,
+            member.role
+          );
+          const showMenu = menuActions.length > 0;
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-sm font-semibold text-gray-900">
-                  {member.name}
-                </span>
-                {member.role === 'OWNER' && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                    <Crown size={10} />
-                    Owner
+          return (
+            <div
+              key={member.id}
+              className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-gray-50"
+            >
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarImage src={member.avatarUrl ?? ''} alt={member.name} />
+                <AvatarFallback className="bg-skolaroid-blue/10 text-xs font-semibold text-skolaroid-blue">
+                  {member.name.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-gray-900">
+                    {member.name}
                   </span>
-                )}
-                {member.role === 'ADMIN' && (
-                  <Badge
-                    variant="secondary"
-                    className="shrink-0 px-1.5 py-0 text-[10px]"
-                  >
-                    Admin
-                  </Badge>
-                )}
+                  {member.role === 'OWNER' && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                      <Crown size={10} />
+                      Owner
+                    </span>
+                  )}
+                  {member.role === 'ADMIN' && (
+                    <Badge
+                      variant="secondary"
+                      className="shrink-0 px-1.5 py-0 text-[10px]"
+                    >
+                      Admin
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {member.role.charAt(0) + member.role.slice(1).toLowerCase()} ·
+                  Joined {formatDate(member.joinedAt)}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {member.role.charAt(0) + member.role.slice(1).toLowerCase()} ·
-                Joined {formatDate(member.joinedAt)}
-              </p>
-            </div>
 
-            {/* TODO: Member action menu (kick/promote) — admin only */}
-          </div>
-        ))}
+              {showMenu && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
+                      <MoreHorizontal size={16} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    {menuActions.map((action) => (
+                      <DropdownMenuItem
+                        key={action.label}
+                        className={
+                          action.destructive
+                            ? 'text-red-600 focus:bg-red-50 focus:text-red-600'
+                            : ''
+                        }
+                        onClick={() => {
+                          // TODO: wire up action handlers in future sprint
+                          console.log(
+                            `${action.label} clicked for member ${member.id}`
+                          );
+                        }}
+                      >
+                        <action.icon size={14} />
+                        {action.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -369,7 +459,14 @@ export default function GroupViewPage({
     const g = group!;
     switch (activeTab) {
       case 'members':
-        return <MembersTab members={g.members} memberCount={g.memberCount} />;
+        return (
+          <MembersTab
+            members={g.members}
+            memberCount={g.memberCount}
+            currentUserId={MOCK_CURRENT_USER_ID}
+            isOwner={isOwner}
+          />
+        );
       case 'about':
         return <AboutTab group={g} />;
       case 'discussion':
