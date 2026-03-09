@@ -16,6 +16,7 @@ import {
   MOCK_GROUPS,
   MOCK_CURRENT_USER_ID,
 } from '@/lib/types/group';
+import { type GroupResponse } from '@/lib/hooks/useCreateGroup';
 import { cn } from '@/lib/utils';
 import {
   X,
@@ -62,7 +63,28 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
   const { showSuccess } = useGroupToast();
 
   const handleGroupCreated = useCallback(
-    (newGroup: Group) => {
+    (groupResponse: GroupResponse) => {
+      // Transform API GroupResponse to frontend Group type
+      const newGroup: Group = {
+        id: groupResponse.id,
+        name: groupResponse.name,
+        description: groupResponse.description ?? undefined,
+        privacy: 'PUBLIC', // Default to PUBLIC - adjust based on form if available
+        visibility: 'VISIBLE', // Default to VISIBLE - adjust based on form if available
+        coverPhotoUrl: undefined,
+        memberCount: groupResponse._count.members,
+        postCount: 0, // API doesn't return media count yet
+        ownerId: groupResponse.creatorId ?? '',
+        members: groupResponse.members.map((member) => ({
+          id: member.id,
+          name:
+            `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() ||
+            member.email,
+          role: 'MEMBER' as const, // Set based on creator check if needed
+          joinedAt: new Date().toISOString(),
+        })),
+        createdAt: groupResponse.createdAt,
+      };
       setGroups((prev) => [newGroup, ...prev]);
       setSelectedGroup(newGroup);
       showSuccess(`Group "${newGroup.name}" created successfully!`);
