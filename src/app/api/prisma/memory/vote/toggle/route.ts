@@ -4,6 +4,31 @@ import { prisma } from '@/lib/prisma';
 import { toggleVoteSchema } from '@/lib/schemas';
 import { toggleVoteService } from '@/services/toggle-vote-service';
 
+// ---------------------------------------------------------------------------
+// In-process rate limiter
+// ---------------------------------------------------------------------------
+// Stores the last toggle timestamp (ms) per "userId:memoryId" pair.
+// Resets on server restart. This is intentionally lightweight — the client
+// already applies a matching 2-second debounce, so only abusive/scripted
+// traffic reaches this guard.
+//
+// TODO (production scale): replace with a Redis/Upstash KV store so the
+// limit is enforced across all serverless instances, not just one process.
+// ---------------------------------------------------------------------------
+const _rateLimitMap = new Map<string, number>();
+const RATE_LIMIT_MS = 2_000;
+
+function isRateLimited(userId: string, memoryId: string): boolean {
+  const key = `${userId}:${memoryId}`;
+  const last = _rateLimitMap.get(key);
+  const now = Date.now();
+
+  if (last !== undefined && now - last < RATE_LIMIT_MS) return true;
+
+  _rateLimitMap.set(key, now);
+  return false;
+}
+
 /**
  * Resolves the userId for the request.
  * - Production:  real Supabase session → check Prisma User row exists.
@@ -89,7 +114,15 @@ export async function POST(request: NextRequest) {
 
     const { memoryId } = parsed.data;
 
-    // ── 3. Toggle vote ─────────────────────────────────────────────────────
+    // ── 3. Rate limit ──────────────────────────────────────────────────────
+    if (isRateLimited(userId, memoryId)) {
+      return NextResponse.json(
+        { success: false, message: 'Too many requests — slow down.' },
+        { status: 429 }
+      );
+    }
+
+    // ── 4. Toggle vote ─────────────────────────────────────────────────────
     const result = await toggleVoteService(memoryId, userId);
 
     return NextResponse.json({
