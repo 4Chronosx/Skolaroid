@@ -1,9 +1,14 @@
 'use client';
 
+import { useEffect, useCallback } from 'react';
 import type {
   LocationSelectionMode,
   MapLocationSelection,
 } from '@/lib/types/map';
+import {
+  isWithinCampusBounds,
+  generateLocationName,
+} from '@/lib/utils/map-utils';
 
 interface MapLocationSelectorProps {
   mode: LocationSelectionMode;
@@ -17,22 +22,85 @@ interface MapLocationSelectorProps {
 export function MapLocationSelector({
   mode,
   onCancel,
+  onLocationSelected,
+  mapRef,
 }: MapLocationSelectorProps) {
+  // Handle map click for custom coordinate mode
+  const handleMapClick = useCallback(
+    (e: mapboxgl.MapMouseEvent) => {
+      if (mode !== 'custom') return;
+
+      const { lng, lat } = e.lngLat;
+
+      if (!isWithinCampusBounds(lat, lng)) {
+        return;
+      }
+
+      const buildingName = generateLocationName(lat, lng);
+
+      onLocationSelected({
+        mode: 'custom',
+        customLocation: {
+          latitude: lat,
+          longitude: lng,
+          buildingName,
+        },
+      });
+    },
+    [mode, onLocationSelected]
+  );
+
+  // Attach click handler to map for custom mode
+  useEffect(() => {
+    const map = mapRef?.current;
+    if (!map || mode !== 'custom') return;
+
+    map.on('click', handleMapClick);
+    map.getCanvas().style.cursor = 'crosshair';
+
+    return () => {
+      map.off('click', handleMapClick);
+      map.getCanvas().style.cursor = '';
+    };
+  }, [mapRef, mode, handleMapClick]);
+
+  // ESC key to cancel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
+  // Auto-timeout: restore modal after 2 minutes of inactivity
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onCancel();
+    }, 2 * 60 * 1000);
+    return () => clearTimeout(timer);
+  }, [onCancel]);
+
   return (
     <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2">
-      <div className="flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-lg">
-        <div className="h-2 w-2 animate-pulse rounded-full bg-skolaroid-blue" />
+      <div className="flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-lg ring-1 ring-black/5">
+        <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-skolaroid-blue" />
         <span className="text-sm font-medium text-gray-700">
           {mode === 'landmark'
-            ? 'Click a landmark on the map'
-            : 'Click anywhere on the map to place a pin'}
+            ? 'Click a landmark on the map to select it'
+            : 'Click anywhere on the campus map to place a pin'}
         </span>
         <button
           onClick={onCancel}
-          className="ml-2 rounded-md bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200"
+          className="ml-2 rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200"
         >
           Cancel
         </button>
+        <kbd className="hidden rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 sm:inline-block">
+          ESC
+        </kbd>
       </div>
     </div>
   );

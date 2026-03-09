@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCreateCustomLocation } from '@/lib/hooks/useCreateCustomLocation';
 import type { MapLocationSelection } from '@/lib/types/map';
 
 // =============================================================================
@@ -122,12 +123,14 @@ export function AddMemoryModal({
   const [hasAgreed, setHasAgreed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [selectedLocationName, setSelectedLocationName] = useState<string | null>(
-    null
-  );
+  const [selectedLocationName, setSelectedLocationName] = useState<
+    string | null
+  >(null);
 
   const { mutate: createMemory, isPending } = useCreateMemory();
   const { data: locationsData, isLoading: locationsLoading } = useLocations();
+  const { mutateAsync: createCustomLocation, isPending: isCreatingLocation } =
+    useCreateCustomLocation();
   const locations = useMemo(
     () => locationsData?.data ?? [],
     [locationsData?.data]
@@ -358,16 +361,34 @@ export function AddMemoryModal({
   // ---------------------------------------------------------------------------
 
   const handleMapSelection = useCallback(
-    (selection: MapLocationSelection) => {
+    async (selection: MapLocationSelection) => {
       if (selection.mode === 'landmark' && selection.locationId) {
         updateField('locationId', selection.locationId);
-        setSelectedLocationName(selection.landmark?.name ?? 'Selected Landmark');
+        setSelectedLocationName(
+          selection.landmark?.name ?? 'Selected Landmark'
+        );
       } else if (selection.mode === 'custom' && selection.customLocation) {
-        // Custom location — will be handled in Step 4
-        setSelectedLocationName(selection.customLocation.buildingName);
+        try {
+          const result = await createCustomLocation({
+            buildingName: selection.customLocation.buildingName,
+            latitude: selection.customLocation.latitude,
+            longitude: selection.customLocation.longitude,
+          });
+          updateField('locationId', result.data.id);
+          setSelectedLocationName(result.data.buildingName);
+        } catch (err) {
+          console.error(
+            '[AddMemoryModal] Failed to create custom location:',
+            err
+          );
+          setErrors((prev) => ({
+            ...prev,
+            locationId: 'Failed to create location. Please try again.',
+          }));
+        }
       }
     },
-    [updateField]
+    [updateField, createCustomLocation]
   );
 
   const handleSelectOnMap = useCallback(
@@ -508,7 +529,7 @@ export function AddMemoryModal({
 
       {/* List Selection Fallback */}
       <div className="space-y-1">
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
           Or select from list
         </p>
         <div className="max-h-48 space-y-2 overflow-y-auto">
@@ -855,10 +876,16 @@ export function AddMemoryModal({
                 </Button>
                 <Button
                   onClick={isLastStep ? handleSubmit : handleNext}
-                  disabled={isPending}
+                  disabled={isPending || isCreatingLocation}
                   className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
                 >
-                  {isPending ? 'Submitting...' : isLastStep ? 'Submit' : 'Next'}
+                  {isPending
+                    ? 'Submitting...'
+                    : isCreatingLocation
+                    ? 'Creating location...'
+                    : isLastStep
+                    ? 'Submit'
+                    : 'Next'}
                 </Button>
               </div>
             </div>
