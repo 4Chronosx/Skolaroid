@@ -9,13 +9,13 @@ import {
   Users2,
   Plus,
   Link2,
-  Globe,
   Lock,
   ChevronRight,
+  Loader2,
 } from 'lucide-react';
-import { type Group, MOCK_GROUPS } from '@/lib/types/group';
 import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
 import { useGroupToast } from '@/components/groups/GroupToast';
+import { useUserGroups } from '@/lib/hooks/useUserGroups';
 
 // ─── PROPS ──────────────────────────────────────────────────────────
 
@@ -28,19 +28,18 @@ interface GroupModalProps {
 
 export function GroupModal({ open, onOpenChange }: GroupModalProps) {
   const router = useRouter();
-  const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
+  const { data: groups = [], isLoading } = useUserGroups();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [pasteInviteOpen, setPasteInviteOpen] = useState(false); // TODO: Implement paste invite link modal in future sprint
   const { showSuccess, ToastPortal } = useGroupToast();
 
-  const handleCreated = (newGroup: Group) => {
-    setGroups((prev) => [newGroup, ...prev]);
+  const handleCreated = () => {
     showSuccess('Group created successfully!');
   };
 
-  const handleGroupClick = (group: Group) => {
+  const handleGroupClick = (groupId: string) => {
     onOpenChange(false);
-    router.push(`/groups/${group.id}`);
+    router.push(`/groups/${groupId}`);
   };
 
   const handlePasteInvite = () => {
@@ -74,7 +73,12 @@ export function GroupModal({ open, onOpenChange }: GroupModalProps) {
             </div>
 
             {/* Body */}
-            {groups.length === 0 ? (
+            {isLoading ? (
+              /* Loading State */
+              <div className="flex items-center justify-center px-6 py-12">
+                <Loader2 size={24} className="animate-spin text-gray-400" />
+              </div>
+            ) : groups.length === 0 ? (
               /* Empty State */
               <div className="space-y-4 px-6 py-12 text-center">
                 <Users2 size={48} className="mx-auto text-gray-300" />
@@ -121,7 +125,7 @@ export function GroupModal({ open, onOpenChange }: GroupModalProps) {
                   {groups.map((group) => (
                     <button
                       key={group.id}
-                      onClick={() => handleGroupClick(group)}
+                      onClick={() => handleGroupClick(group.id)}
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-gray-50"
                     >
                       {/* Avatar */}
@@ -135,16 +139,10 @@ export function GroupModal({ open, onOpenChange }: GroupModalProps) {
                           {group.name}
                         </p>
                         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          {group.privacy === 'PUBLIC' ? (
-                            <Globe size={12} className="shrink-0" />
-                          ) : (
-                            <Lock size={12} className="shrink-0" />
-                          )}
-                          <span>
-                            {group.privacy === 'PUBLIC' ? 'Public' : 'Private'}
-                          </span>
+                          <Lock size={12} className="shrink-0" />
+                          <span>Private</span>
                           <span>·</span>
-                          <span>{group.memberCount} members</span>
+                          <span>{group._count.members} members</span>
                         </p>
                       </div>
 

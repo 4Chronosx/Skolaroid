@@ -47,6 +47,7 @@ export const memoryVisibilityEnum = z.enum([
   'PUBLIC',
   'PROGRAM_ONLY',
   'BATCH_ONLY',
+  'GROUP_ONLY',
   'PRIVATE',
 ]);
 
@@ -149,8 +150,51 @@ export const VISIBILITY_LABELS: Record<MemoryVisibility, string> = {
   PUBLIC: 'Public',
   PROGRAM_ONLY: 'Program',
   BATCH_ONLY: 'Batch',
+  GROUP_ONLY: 'Group',
   PRIVATE: 'Private',
 };
+
+// ============================================================================
+// GROUP SCHEMAS
+// ============================================================================
+
+/** Schema for creating a private group. */
+export const createGroupServerSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Group name is required')
+    .max(50, 'Group name must be 50 characters or less'),
+  description: z
+    .string()
+    .trim()
+    .max(500, 'Description must be 500 characters or less')
+    .optional(),
+});
+
+/** Schema for updating a private group. */
+export const updateGroupServerSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Group name is required')
+    .max(50, 'Group name must be 50 characters or less')
+    .optional(),
+  description: z
+    .string()
+    .trim()
+    .max(500, 'Description must be 500 characters or less')
+    .optional(),
+});
+
+/** Schema for adding/removing a member by email. */
+export const groupMemberSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+export type CreateGroupServerInput = z.infer<typeof createGroupServerSchema>;
+export type UpdateGroupServerInput = z.infer<typeof updateGroupServerSchema>;
+export type GroupMemberInput = z.infer<typeof groupMemberSchema>;
 
 // ============================================================================
 // AUTH TYPE EXPORTS

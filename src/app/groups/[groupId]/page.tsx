@@ -2,13 +2,9 @@
 
 import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import {
   ChevronLeft,
-  Globe,
   Lock,
-  Eye,
-  EyeOff,
   UserPlus,
   Share2,
   Trash2,
@@ -29,27 +25,22 @@ import {
   Image as ImageIcon,
   MoreHorizontal,
   LogOut,
-  ShieldOff,
-  ShieldCheck,
   UserMinus,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
-import {
-  type Group,
-  type GroupMember,
-  MOCK_GROUPS,
-  MOCK_CURRENT_USER_ID,
-} from '@/lib/types/group';
 import { DeleteGroupModal } from '@/components/groups/DeleteGroupModal';
 import { useGroupToast } from '@/components/groups/GroupToast';
+import { useGroupById } from '@/lib/hooks/useGroupById';
+import { useDeleteGroup } from '@/lib/hooks/useDeleteGroup';
+import { useRemoveGroupMember } from '@/lib/hooks/useGroupMembers';
 
 // ─── TYPES ──────────────────────────────────────────────────────────
 
@@ -62,14 +53,33 @@ interface SidebarItem {
   onClick: () => void;
 }
 
-// ─── HELPERS ────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  });
+interface ApiGroupMember {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
 }
+
+interface ApiGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  creatorId: string | null;
+  creator: ApiGroupMember | null;
+  members: ApiGroupMember[];
+  _count: { members: number; memories: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+function memberDisplayName(m: ApiGroupMember): string {
+  if (m.firstName || m.lastName) {
+    return [m.firstName, m.lastName].filter(Boolean).join(' ');
+  }
+  return m.email;
+}
+
+// ─── HELPERS ────────────────────────────────────────────────────────
 
 function formatFullDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -105,34 +115,34 @@ type MenuAction = {
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   destructive?: boolean;
+  action: string;
 };
 
 function getMemberMenuActions(
-  viewerIsOwner: boolean,
+  viewerIsCreator: boolean,
   isSelf: boolean,
-  targetRole: GroupMember['role']
+  isTargetCreator: boolean
 ): MenuAction[] {
-  if (viewerIsOwner) {
-    if (isSelf) {
-      return [
-        { label: 'Remove as Admin', icon: ShieldOff },
-        { label: 'Leave Group', icon: LogOut, destructive: true },
-      ];
-    }
-    if (targetRole === 'ADMIN') {
-      return [
-        { label: 'Remove as Admin', icon: ShieldOff },
-        { label: 'Remove from Group', icon: UserMinus, destructive: true },
-      ];
-    }
-    // MEMBER
+  if (isTargetCreator) return []; // Cannot perform actions on the creator
+  if (viewerIsCreator) {
     return [
-      { label: 'Remove from Group', icon: UserMinus, destructive: true },
-      { label: 'Invite as Admin', icon: ShieldCheck },
+      {
+        label: 'Remove from Group',
+        icon: UserMinus,
+        destructive: true,
+        action: 'remove',
+      },
     ];
   }
   if (isSelf) {
-    return [{ label: 'Leave Group', icon: LogOut, destructive: true }];
+    return [
+      {
+        label: 'Leave Group',
+        icon: LogOut,
+        destructive: true,
+        action: 'leave',
+      },
+    ];
   }
   return [];
 }
@@ -141,13 +151,17 @@ function MembersTab({
   members,
   memberCount,
   currentUserId,
-  isOwner,
+  creatorId,
+  onRemoveMember,
 }: {
-  members: GroupMember[];
+  members: ApiGroupMember[];
   memberCount: number;
   currentUserId: string;
-  isOwner: boolean;
+  creatorId: string | null;
+  onRemoveMember: (email: string) => void;
 }) {
+  const viewerIsCreator = currentUserId === creatorId;
+
   return (
     <div className="space-y-4">
       <h3 className="text-base font-semibold text-gray-900">
@@ -156,12 +170,14 @@ function MembersTab({
       <div className="space-y-2">
         {members.map((member) => {
           const isSelf = member.id === currentUserId;
+          const isTargetCreator = member.id === creatorId;
           const menuActions = getMemberMenuActions(
-            isOwner,
+            viewerIsCreator,
             isSelf,
-            member.role
+            isTargetCreator
           );
           const showMenu = menuActions.length > 0;
+          const displayName = memberDisplayName(member);
 
           return (
             <div
@@ -169,36 +185,25 @@ function MembersTab({
               className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-gray-50"
             >
               <Avatar className="h-9 w-9 shrink-0">
-                <AvatarImage src={member.avatarUrl ?? ''} alt={member.name} />
                 <AvatarFallback className="bg-skolaroid-blue/10 text-xs font-semibold text-skolaroid-blue">
-                  {member.name.slice(0, 2).toUpperCase()}
+                  {displayName.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm font-semibold text-gray-900">
-                    {member.name}
+                    {displayName}
+                    {isSelf && ' (You)'}
                   </span>
-                  {member.role === 'OWNER' && (
+                  {isTargetCreator && (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                       <Crown size={10} />
-                      Owner
+                      Creator
                     </span>
                   )}
-                  {member.role === 'ADMIN' && (
-                    <Badge
-                      variant="secondary"
-                      className="shrink-0 px-1.5 py-0 text-[10px]"
-                    >
-                      Admin
-                    </Badge>
-                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {member.role.charAt(0) + member.role.slice(1).toLowerCase()} ·
-                  Joined {formatDate(member.joinedAt)}
-                </p>
+                <p className="text-xs text-muted-foreground">{member.email}</p>
               </div>
 
               {showMenu && (
@@ -217,12 +222,7 @@ function MembersTab({
                             ? 'text-red-600 focus:bg-red-50 focus:text-red-600'
                             : ''
                         }
-                        onClick={() => {
-                          // TODO: wire up action handlers in future sprint
-                          console.log(
-                            `${action.label} clicked for member ${member.id}`
-                          );
-                        }}
+                        onClick={() => onRemoveMember(member.email)}
                       >
                         <action.icon size={14} />
                         {action.label}
@@ -241,8 +241,10 @@ function MembersTab({
 
 // ─── ABOUT TAB ──────────────────────────────────────────────────────
 
-function AboutTab({ group }: { group: Group }) {
-  const ownerMember = group.members.find((m) => m.role === 'OWNER');
+function AboutTab({ group }: { group: ApiGroup }) {
+  const creatorName = group.creator
+    ? memberDisplayName(group.creator)
+    : 'Unknown';
 
   return (
     <div className="max-w-lg space-y-6">
@@ -265,37 +267,14 @@ function AboutTab({ group }: { group: Group }) {
         <h3 className="text-base font-semibold text-gray-900">Group details</h3>
 
         <div className="flex items-start gap-3">
-          {group.privacy === 'PUBLIC' ? (
-            <Globe
-              size={16}
-              className="mt-0.5 shrink-0 text-muted-foreground"
-            />
-          ) : (
-            <Lock size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-          )}
-          <span className="text-sm text-gray-700">
-            {group.privacy === 'PUBLIC' ? 'Public' : 'Private'} group
-          </span>
-        </div>
-
-        <div className="flex items-start gap-3">
-          {group.visibility === 'VISIBLE' ? (
-            <Eye size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-          ) : (
-            <EyeOff
-              size={16}
-              className="mt-0.5 shrink-0 text-muted-foreground"
-            />
-          )}
-          <span className="text-sm text-gray-700">
-            {group.visibility === 'VISIBLE' ? 'Visible' : 'Hidden'} to search
-          </span>
+          <Lock size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+          <span className="text-sm text-gray-700">Private group</span>
         </div>
 
         <div className="flex items-start gap-3">
           <Users size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
           <span className="text-sm text-gray-700">
-            {group.memberCount} members
+            {group._count.members} members
           </span>
         </div>
 
@@ -312,7 +291,7 @@ function AboutTab({ group }: { group: Group }) {
         <div className="flex items-start gap-3">
           <Crown size={16} className="mt-0.5 shrink-0 text-amber-500" />
           <span className="text-sm text-gray-700">
-            Owned by {ownerMember?.name ?? 'Unknown'}
+            Created by {creatorName}
           </span>
         </div>
       </div>
@@ -331,19 +310,31 @@ export default function GroupViewPage({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>('members');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const { showSuccess, ToastPortal } = useGroupToast();
+  const { showSuccess, showError, ToastPortal } = useGroupToast();
 
-  const group = MOCK_GROUPS.find((g) => g.id === groupId);
+  const { data: group, isLoading, error } = useGroupById(groupId);
+  const deleteGroup = useDeleteGroup();
+  const removeMember = useRemoveGroupMember();
 
-  // ─── NOT FOUND ──────────────────────────────────────────────────
+  // ─── LOADING ────────────────────────────────────────────────────
 
-  if (!group) {
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Loader2 size={32} className="animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  // ─── NOT FOUND / ERROR ──────────────────────────────────────────
+
+  if (!group || error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
         <h1 className="text-xl font-bold text-gray-900">Group not found</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          The group you&apos;re looking for doesn&apos;t exist or has been
-          removed.
+          {error?.message ??
+            "The group you're looking for doesn't exist or has been removed."}
         </p>
         <Button
           onClick={() => router.push('/map')}
@@ -357,11 +348,7 @@ export default function GroupViewPage({
   }
 
   // ─── ROLE CHECKS ────────────────────────────────────────────────
-
-  const isOwner = group.ownerId === MOCK_CURRENT_USER_ID;
-  const isAdmin =
-    group.members.find((m) => m.id === MOCK_CURRENT_USER_ID)?.role === 'ADMIN';
-  const canSeeAdmin = isOwner || isAdmin;
+  const isCreator = group.members.some((m) => m.id === group.creatorId);
 
   // ─── TAB CONFIG ─────────────────────────────────────────────────
 
@@ -446,10 +433,33 @@ export default function GroupViewPage({
   // ─── DELETE HANDLER ─────────────────────────────────────────────
 
   const handleDelete = () => {
-    setDeleteModalOpen(false);
-    showSuccess(`"${group.name}" has been deleted.`);
-    // TODO: Navigate to /groups list page once that route is created
-    setTimeout(() => router.push('/map'), 1000);
+    deleteGroup.mutate(groupId, {
+      onSuccess: () => {
+        setDeleteModalOpen(false);
+        showSuccess(`"${group.name}" has been deleted.`);
+        setTimeout(() => router.push('/map'), 1000);
+      },
+      onError: (err) => {
+        setDeleteModalOpen(false);
+        showError(err.message);
+      },
+    });
+  };
+
+  // ─── REMOVE MEMBER HANDLER ─────────────────────────────────────
+
+  const handleRemoveMember = (email: string) => {
+    removeMember.mutate(
+      { groupId, email },
+      {
+        onSuccess: (_, variables) => {
+          showSuccess(`Member ${variables.email} removed`);
+        },
+        onError: (err) => {
+          showError(err.message);
+        },
+      }
+    );
   };
 
   // ─── RENDER TAB CONTENT ─────────────────────────────────────────
@@ -462,9 +472,10 @@ export default function GroupViewPage({
         return (
           <MembersTab
             members={g.members}
-            memberCount={g.memberCount}
-            currentUserId={MOCK_CURRENT_USER_ID}
-            isOwner={isOwner}
+            memberCount={g._count.members}
+            currentUserId={g.creatorId ?? ''}
+            creatorId={g.creatorId}
+            onRemoveMember={handleRemoveMember}
           />
         );
       case 'about':
@@ -501,18 +512,9 @@ export default function GroupViewPage({
 
       {/* Cover Photo Section */}
       <div className="relative h-48 overflow-hidden bg-gradient-to-br from-skolaroid-blue/20 to-skolaroid-blue/5">
-        {group.coverPhotoUrl ? (
-          <Image
-            src={group.coverPhotoUrl}
-            fill
-            alt="cover"
-            className="object-cover"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <ImageIcon size={64} className="text-skolaroid-blue/10" />
-          </div>
-        )}
+        <div className="flex h-full items-center justify-center">
+          <ImageIcon size={64} className="text-skolaroid-blue/10" />
+        </div>
         {/* TODO: Implement cover photo upload in future sprint */}
         <button
           className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md border bg-white/90 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
@@ -529,29 +531,16 @@ export default function GroupViewPage({
           <h1 className="text-xl font-bold text-gray-900">{group.name}</h1>
           <div className="mt-1 flex items-center gap-3">
             <span className="flex items-center gap-1 text-sm text-muted-foreground">
-              {group.privacy === 'PUBLIC' ? (
-                <Globe size={14} />
-              ) : (
-                <Lock size={14} />
-              )}
-              {group.privacy === 'PUBLIC' ? 'Public' : 'Private'}
-            </span>
-            <span className="text-sm text-muted-foreground">·</span>
-            <span className="flex items-center gap-1 text-sm text-muted-foreground">
-              {group.visibility === 'VISIBLE' ? (
-                <Eye size={14} />
-              ) : (
-                <EyeOff size={14} />
-              )}
-              {group.visibility === 'VISIBLE' ? 'Visible' : 'Hidden'}
+              <Lock size={14} />
+              Private
             </span>
             <span className="text-sm text-muted-foreground">·</span>
             <span className="text-sm text-muted-foreground">
-              {group.memberCount} members
+              {group._count.members} members
             </span>
             <span className="text-sm text-muted-foreground">·</span>
             <span className="text-sm text-muted-foreground">
-              {group.postCount} posts
+              {group._count.memories} memories
             </span>
           </div>
         </div>
@@ -580,7 +569,7 @@ export default function GroupViewPage({
             <Share2 size={14} />
             Share
           </Button>
-          {isOwner && (
+          {isCreator && (
             <Button
               size="sm"
               variant="outline"
@@ -616,7 +605,7 @@ export default function GroupViewPage({
         {/* Left Sidebar */}
         <div className="hidden w-56 shrink-0 flex-col space-y-1 border-r bg-white p-3 lg:flex">
           {sidebarItems
-            .filter((item) => !item.adminOnly || canSeeAdmin)
+            .filter((item) => !item.adminOnly || isCreator)
             .map((item) => (
               <button
                 key={item.label}
