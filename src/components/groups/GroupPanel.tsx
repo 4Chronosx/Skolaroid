@@ -97,7 +97,7 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="flex h-[85vh] w-[70vw] max-w-5xl gap-0 overflow-hidden rounded-2xl p-0"
+          className="flex h-[85vh] w-[70vw] max-w-none gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-none"
           showCloseButton={false}
         >
           <DialogTitle className="sr-only">
