@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MapLocationSelection } from '@/lib/types/map';
 
 // =============================================================================
 // TYPES
@@ -47,6 +48,11 @@ interface AddMemoryModalProps {
   onOpenChange: (open: boolean) => void;
   /** Optional era (decade start year) for context display, e.g. 2020. */
   defaultEra?: number | null;
+  /** Callback to enter map location selection mode. */
+  onRequestMapSelection?: (
+    mode: 'landmark' | 'custom',
+    onSelect: (selection: MapLocationSelection) => void
+  ) => void;
 }
 
 // =============================================================================

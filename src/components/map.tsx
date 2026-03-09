@@ -27,6 +27,11 @@ import {
   type MemoryWithCoordinates,
 } from '@/lib/hooks/useAllMemoriesWithCoordinates';
 import { LANDMARKS, type Landmark } from '@/lib/constants/landmarks';
+import type {
+  LocationSelectionMode,
+  MapLocationSelection,
+} from '@/lib/types/map';
+import { MapLocationSelector } from './map/MapLocationSelector';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -117,6 +122,14 @@ export function MapComponent() {
   const [memoryDetailOpen, setMemoryDetailOpen] = useState(false);
   const [showLandmarks, setShowLandmarks] = useState(false);
   const [showMemoryPins, setShowMemoryPins] = useState(true);
+  // Location selection mode for Add Memory flow
+  const [locationSelectionMode, setLocationSelectionMode] =
+    useState<LocationSelectionMode>('inactive');
+  const [pendingLocationSelection, setPendingLocationSelection] =
+    useState<MapLocationSelection | null>(null);
+  const locationSelectionCallbackRef = useRef<
+    ((selection: MapLocationSelection) => void) | null
+  >(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const markerRootsRef = useRef<{ root: Root; landmark: Landmark }[]>([]);
   const memoryMarkersRef = useRef<mapboxgl.Marker[]>([]);
@@ -284,6 +297,68 @@ export function MapComponent() {
   const cancelPendingFlyTo = useCallback(() => {
     pendingMemoryRef.current = null;
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Location Selection Mode handlers
+  // ---------------------------------------------------------------------------
+
+  const handleRequestMapSelection = useCallback(
+    (
+      mode: 'landmark' | 'custom',
+      onSelect: (selection: MapLocationSelection) => void
+    ) => {
+      setLocationSelectionMode(mode);
+      locationSelectionCallbackRef.current = onSelect;
+
+      // Show landmarks when selecting a landmark
+      if (mode === 'landmark') {
+        setShowLandmarks(true);
+        setShowMemoryPins(false);
+      } else {
+        // Custom mode — hide landmarks so user can click freely
+        setShowLandmarks(false);
+        setShowMemoryPins(false);
+      }
+    },
+    []
+  );
+
+  const handleCancelMapSelection = useCallback(() => {
+    setLocationSelectionMode('inactive');
+    locationSelectionCallbackRef.current = null;
+    setPendingLocationSelection(null);
+    // Restore defaults
+    setShowLandmarks(false);
+    setShowMemoryPins(true);
+  }, []);
+
+  const handleLocationSelected = useCallback(
+    (selection: MapLocationSelection) => {
+      locationSelectionCallbackRef.current?.(selection);
+      setLocationSelectionMode('inactive');
+      locationSelectionCallbackRef.current = null;
+      setPendingLocationSelection(null);
+      // Restore defaults
+      setShowLandmarks(false);
+      setShowMemoryPins(true);
+    },
+    []
+  );
+
+  // Update click handler to integrate with selection mode
+  useEffect(() => {
+    handleClickRef.current = (landmark: Landmark) => {
+      if (locationSelectionMode === 'landmark') {
+        handleLocationSelected({
+          mode: 'landmark',
+          landmark,
+          locationId: landmark.id,
+        });
+        return;
+      }
+      setSelectedLandmark(landmark);
+    };
+  }, [locationSelectionMode, handleLocationSelected]);
 
   useLayoutEffect(() => {
     setIsClient(true);
@@ -567,13 +642,28 @@ export function MapComponent() {
 
       {/* Add Memory Modal */}
       <AddMemoryModal
-        open={addMemoryOpen}
+        open={addMemoryOpen && locationSelectionMode === 'inactive'}
         onOpenChange={(isOpen) => {
           setAddMemoryOpen(isOpen);
-          if (!isOpen) setAddMemoryEra(null);
+          if (!isOpen) {
+            setAddMemoryEra(null);
+            handleCancelMapSelection();
+          }
         }}
         defaultEra={addMemoryEra}
+        onRequestMapSelection={handleRequestMapSelection}
       />
+
+      {/* Map Location Selector Overlay */}
+      {locationSelectionMode !== 'inactive' && (
+        <MapLocationSelector
+          mode={locationSelectionMode}
+          onCancel={handleCancelMapSelection}
+          onLocationSelected={handleLocationSelected}
+          pendingSelection={pendingLocationSelection}
+          mapRef={mapRef}
+        />
+      )}
 
       {/* Landmark Memories Panel */}
       <LandmarkMemoriesPanel
