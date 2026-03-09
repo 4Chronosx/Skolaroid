@@ -13,20 +13,23 @@ import {
   ChevronDown,
   Mail,
   Info,
+  Loader2,
 } from 'lucide-react';
 import {
-  type Group,
   type GroupPrivacy,
   type GroupVisibility,
   createGroupSchema,
 } from '@/lib/types/group';
+import { useCreateGroup, type GroupResponse } from '@/lib/hooks/useCreateGroup';
 
 // ─── PROPS ──────────────────────────────────────────────────────────
 
 interface CreateGroupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: (group: Group) => void;
+  // Callback receives the full GroupResponse from the backend.
+  // Callers can transform it to their own types as needed.
+  onCreated: (group: GroupResponse) => void;
 }
 
 // ─── CUSTOM DROPDOWN COMPONENT ──────────────────────────────────────
@@ -189,6 +192,7 @@ export function CreateGroupModal({
   const [visibility, setVisibility] = useState<GroupVisibility>('VISIBLE');
   const [inviteEmails, setInviteEmails] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const createGroup = useCreateGroup();
 
   const resetForm = useCallback(() => {
     setName('');
@@ -248,34 +252,25 @@ export function CreateGroupModal({
       return;
     }
 
-    // Build new group from mock data
-    const newGroup: Group = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      description: description.trim() || null,
-      privacy,
-      visibility,
-      coverPhotoUrl: null,
-      memberCount: 1,
-      postCount: 0,
-      ownerId: 'user-001', // TODO: Replace with actual auth user ID
-      createdAt: new Date().toISOString(),
-      members: [
-        {
-          id: 'user-001', // TODO: Replace with actual auth user ID
-          name: 'You (Owner)',
-          avatarUrl: null,
-          role: 'OWNER',
-          joinedAt: new Date().toISOString(),
+    createGroup.mutate(
+      {
+        name: name.trim(),
+        description: description.trim() || undefined,
+      },
+      {
+        onSuccess: (data) => {
+          onCreated(data);
+          handleClose();
         },
-      ],
-    };
-
-    onCreated(newGroup);
-    handleClose();
+        onError: (err) => {
+          setErrors({ name: err.message });
+        },
+      }
+    );
   };
 
-  const isDisabled = name.trim() === '' || errors.name !== undefined;
+  const isDisabled =
+    name.trim() === '' || errors.name !== undefined || createGroup.isPending;
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
@@ -392,10 +387,13 @@ export function CreateGroupModal({
             <Button
               onClick={handleSubmit}
               disabled={isDisabled}
-              className={`bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90 ${
+              className={`gap-1.5 bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90 ${
                 isDisabled ? 'cursor-not-allowed opacity-50' : ''
               }`}
             >
+              {createGroup.isPending && (
+                <Loader2 size={14} className="animate-spin" />
+              )}
               Create Group
             </Button>
           </div>

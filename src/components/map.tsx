@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { createRoot, type Root } from 'react-dom/client';
 import { Plus } from 'lucide-react';
 import { AddMemoryModal } from './add-memory-modal';
-import { GroupModal } from './group-modal';
+import { GroupPanel } from './groups/GroupPanel';
 import { BatchesModal } from './batches-modal';
 import { ExpandableToolbar } from './expandable-toolbar';
 import { LandmarkMarker } from './map/LandmarkMarker';
@@ -142,7 +142,8 @@ export function MapComponent() {
   const { data: countsData } = useMemoryCountsByLandmark();
   const memoryCounts = useMemo(() => countsData?.data ?? {}, [countsData]);
 
-  const { data: memoriesData } = useAllMemoriesWithCoordinates();
+  const { data: memoriesData, isLoading: memoriesLoading } =
+    useAllMemoriesWithCoordinates();
   const memories = useMemo(() => memoriesData?.data ?? [], [memoriesData]);
 
   // Only show memory pins for the active era (based on batch tag)
@@ -461,6 +462,67 @@ export function MapComponent() {
     }
   }, [isClient, handleLandmarkClick, mapError]);
 
+  // Handle memoryId URL param (for gallery → map navigation)
+  useEffect(() => {
+    if (!mapRef.current || memoriesLoading || !memories) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const memoryIdParam = params.get('memoryId');
+    const eraParam = params.get('era');
+
+    if (!memoryIdParam) return;
+
+    // Find the memory by ID
+    const targetMemory = memories.find((m) => m.id === memoryIdParam);
+    if (!targetMemory) {
+      console.warn(`Memory with ID ${memoryIdParam} not found`);
+      return;
+    }
+
+    // Switch era if needed
+    const memoryEra = getEraFromBatchTag(
+      targetMemory.tags ?? [],
+      targetMemory.createdAt
+    );
+    if (eraParam && memoryEra !== activeMapEra) {
+      setActiveMapEra(memoryEra);
+      mapRef.current.setStyle(ERA_MAP_STYLES[memoryEra]);
+    }
+
+    // Wait for style to load, then fly to memory and open modal
+    const onStyleLoad = () => {
+      mapRef.current?.off('style.load', onStyleLoad);
+      setTimeout(() => {
+        flyToMemoryWithSequence(targetMemory, () => {
+          setSelectedMemory(targetMemory);
+          setMemoryDetailOpen(true);
+        });
+      }, 300);
+    };
+
+    if (memoryEra !== activeMapEra) {
+      mapRef.current.on('style.load', onStyleLoad);
+    } else {
+      setTimeout(() => {
+        flyToMemoryWithSequence(targetMemory, () => {
+          setSelectedMemory(targetMemory);
+          setMemoryDetailOpen(true);
+        });
+      }, 300);
+    }
+
+    // Clear URL params after processing (optional - keeps URL clean)
+    window.history.replaceState({}, '', window.location.pathname);
+  }, [
+    memories,
+    memoriesLoading,
+    activeMapEra,
+    flyToMemoryWithSequence,
+    setActiveMapEra,
+    setSelectedMemory,
+    setMemoryDetailOpen,
+  ]);
+
   // Switch Mapbox style when the active era changes
   useEffect(() => {
     if (!mapRef.current) return;
@@ -623,7 +685,30 @@ export function MapComponent() {
         const era = ERA_OVERLAY[activeMapEra];
         if (!era) return null;
         return (
-          <div className="absolute bottom-8 left-4 z-10">
+          <div className="absolute bottom-8 left-4 z-10 flex items-center gap-3">
+            <button
+              onClick={() => {
+                window.location.href = `/gallery?era=${activeMapEra}`;
+              }}
+              className="flex items-center gap-2 rounded-full border border-gray-300 bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:shadow-lg active:scale-95"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="h-4 w-4"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                />
+              </svg>
+              View Gallery
+            </button>
+
             <div
               className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold shadow-sm backdrop-blur-sm ${era.badge}`}
             >
@@ -662,8 +747,8 @@ export function MapComponent() {
         }}
       />
 
-      {/* Group Modal */}
-      <GroupModal
+      {/* Group Panel */}
+      <GroupPanel
         open={groupModalOpen}
         onOpenChange={(isOpen) => {
           setGroupModalOpen(isOpen);

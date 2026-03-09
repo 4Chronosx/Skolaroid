@@ -1,7 +1,7 @@
 ---
-name: sa-generate
+name: so-generate
 description: Structured Autonomy Implementation Generator Prompt
-model: Claude Opus 4.6 (copilot)
+model: Claude Sonnet 4.5 (copilot)
 agent: agent
 ---
 

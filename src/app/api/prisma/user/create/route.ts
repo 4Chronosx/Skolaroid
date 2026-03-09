@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       data: {
         id: authUser.id,
         email,
-        studentId: 'PENDING',
+        studentId: `PENDING-${authUser.id}`,
         firstName: 'New',
         lastName: 'User',
         programBatch: { connect: { id: programBatch.id } },

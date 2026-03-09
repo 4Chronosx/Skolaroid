@@ -1,30 +1,37 @@
 'use client';
 
-import { TagInput } from '@/components/tag-input';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { useCreateMemory } from '@/lib/hooks/useCreateMemory';
 import { useLocations } from '@/lib/hooks/useLocations';
+import { VISIBILITY_LABELS, type MemoryVisibility } from '@/lib/schemas';
 import {
-  createMemorySchema,
-  MAX_TAGS,
-  VISIBILITY_LABELS,
-  type MemoryVisibility,
-} from '@/lib/schemas';
-import {
+  ArrowUpDown,
+  CheckCircle,
+  Copy,
+  Crop,
   Eye,
   FileText,
+  Globe,
+  Grid3X3,
+  Heart,
   ImageIcon,
-  MapPin,
+  Info,
+  List,
+  Loader2,
+  Lock,
+  Trash2,
+  Pencil,
+  Share,
+  Shield,
+  Type,
   Upload,
   X,
-  Calendar,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useCreateCustomLocation } from '@/lib/hooks/useCreateCustomLocation';
 import type { MapLocationSelection } from '@/lib/types/map';
 
@@ -32,16 +39,23 @@ import type { MapLocationSelection } from '@/lib/types/map';
 // TYPES
 // =============================================================================
 
-type Step = 'upload' | 'landmark' | 'details' | 'preview';
+type Tab = 'upload' | 'caption' | 'privacy';
 
-interface FormData {
-  mediaFile: File | null;
-  mediaPreviewUrl: string | null;
-  locationId: string;
-  title: string;
-  description: string;
-  tags: string[];
-  visibility: MemoryVisibility;
+type ViewMode = 'grid' | 'list';
+
+interface UploadingFile {
+  file: File;
+  id: string;
+  progress: number;
+  status: 'uploading' | 'complete' | 'error';
+  previewUrl: string;
+  uploadedUrl?: string;
+}
+
+interface PlaceholderStates {
+  addToStory: boolean;
+  shareToFeed: boolean;
+  enableComments: boolean;
 }
 
 interface AddMemoryModalProps {
@@ -60,51 +74,103 @@ interface AddMemoryModalProps {
 // CONSTANTS
 // =============================================================================
 
-const STEPS: Step[] = ['upload', 'landmark', 'details', 'preview'];
+const TABS: Tab[] = ['upload', 'caption', 'privacy'];
 
-const STEP_META: Record<Step, { label: string; icon: typeof Upload }> = {
-  upload: { label: 'Upload', icon: Upload },
-  landmark: { label: 'Landmark', icon: MapPin },
-  details: { label: 'Details', icon: FileText },
-  preview: { label: 'Preview', icon: Eye },
+const TAB_META: Record<Tab, { label: string; icon: typeof Upload }> = {
+  upload: { label: 'Upload media', icon: Upload },
+  caption: { label: 'Add caption', icon: Type },
+  privacy: { label: 'Privacy', icon: Shield },
 };
 
 const VISIBILITY_OPTIONS: {
   value: MemoryVisibility;
   label: string;
   description: string;
+  icon: typeof Globe;
 }[] = [
   {
     value: 'PUBLIC',
     label: VISIBILITY_LABELS.PUBLIC,
     description: 'Visible to everyone',
+    icon: Globe,
   },
   {
     value: 'PROGRAM_ONLY',
     label: 'Program Only',
     description: 'Visible to your program',
+    icon: Eye,
   },
   {
     value: 'BATCH_ONLY',
     label: 'Batch Only',
     description: 'Visible to your batch',
+    icon: Shield,
   },
   {
     value: 'PRIVATE',
     label: VISIBILITY_LABELS.PRIVATE,
     description: 'Only you can see this',
+    icon: Lock,
   },
 ];
 
-const INITIAL_FORM_DATA: FormData = {
-  mediaFile: null,
-  mediaPreviewUrl: null,
-  locationId: '',
-  title: '',
-  description: '',
-  tags: [],
-  visibility: 'PUBLIC',
-};
+const MOCK_PROGRAM_BATCH_ID = '50000000-0000-4000-8000-000000000001';
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 12);
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function uploadFileWithProgress(
+  file: File,
+  onProgress: (percent: number) => void
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        onProgress(percent);
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      try {
+        const json = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+          resolve(json.url as string);
+        } else {
+          reject(new Error(json.message ?? 'Upload failed'));
+        }
+      } catch {
+        reject(new Error('Invalid response from server'));
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error during upload'));
+    });
+
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload aborted'));
+    });
+
+    xhr.open('POST', '/api/storage/upload-memory-media');
+    xhr.send(formData);
+  });
+}
 
 // =============================================================================
 // COMPONENT
@@ -113,22 +179,42 @@ const INITIAL_FORM_DATA: FormData = {
 export function AddMemoryModal({
   open,
   onOpenChange,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   defaultEra,
   onRequestMapSelection,
 }: AddMemoryModalProps) {
-  const [currentStep, setCurrentStep] = useState<Step>('upload');
-  const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [hasAgreed, setHasAgreed] = useState(false);
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+
+  const [activeTab, setActiveTab] = useState<Tab>('upload');
+  const [highestReachedTab, setHighestReachedTab] = useState<number>(0);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [caption, setCaption] = useState('');
+  const [visibility, setVisibility] = useState<MemoryVisibility>('PUBLIC');
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [, setShowVisibilityDropdown] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [placeholderStates, setPlaceholderStates] = useState<PlaceholderStates>(
+    {
+      addToStory: false,
+      shareToFeed: true,
+      enableComments: true,
+    }
+  );
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const captionRef = useRef<HTMLTextAreaElement>(null);
 
   const [selectedLocationName, setSelectedLocationName] = useState<
     string | null
   >(null);
 
   const { mutate: createMemory, isPending } = useCreateMemory();
-  const { data: locationsData, isLoading: locationsLoading } = useLocations();
+  const { data: locationsData } = useLocations();
   const { mutateAsync: createCustomLocation, isPending: isCreatingLocation } =
     useCreateCustomLocation();
   const locations = useMemo(
@@ -136,224 +222,310 @@ export function AddMemoryModal({
     [locationsData?.data]
   );
 
-  const currentStepIndex = STEPS.indexOf(currentStep);
+  // ---------------------------------------------------------------------------
+  // Computed
+  // ---------------------------------------------------------------------------
+
+  const isDirty = useMemo(() => {
+    return uploadingFiles.length > 0 || caption.trim().length > 0;
+  }, [uploadingFiles, caption]);
+
+  const activeTabIndex = TABS.indexOf(activeTab);
+
+  const completedFiles = useMemo(
+    () => uploadingFiles.filter((f) => f.status === 'complete'),
+    [uploadingFiles]
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const hasCompletedUploads = completedFiles.length > 0;
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const currentVisibilityOption = useMemo(
+    () =>
+      VISIBILITY_OPTIONS.find((o) => o.value === visibility) ??
+      VISIBILITY_OPTIONS[0],
+    [visibility]
+  );
 
   // ---------------------------------------------------------------------------
-  // Cleanup Object URLs on unmount to prevent memory leaks
+  // Cleanup Object URLs on unmount
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
     return () => {
-      if (formData.mediaPreviewUrl) {
-        URL.revokeObjectURL(formData.mediaPreviewUrl);
-      }
+      uploadingFiles.forEach((f) => {
+        URL.revokeObjectURL(f.previewUrl);
+      });
     };
-    // Only run cleanup on unmount — intentionally excluding formData.mediaPreviewUrl
+    // Only run on unmount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Helpers
+  // Reset state when modal closes
   // ---------------------------------------------------------------------------
 
-  const updateField = useCallback(
-    <K extends keyof FormData>(key: K, value: FormData[K]) => {
-      setFormData((prev) => ({ ...prev, [key]: value }));
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    },
-    []
-  );
+  const resetState = useCallback(() => {
+    setActiveTab('upload');
+    setHighestReachedTab(0);
+    setUploadingFiles((prev) => {
+      prev.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+      return [];
+    });
+    setViewMode('grid');
+    setCaption('');
+    setVisibility('PUBLIC');
+    setShowExitConfirm(false);
+    setShowSuccess(false);
+    setSubmitError(null);
+    setShowVisibilityDropdown(false);
+    setPlaceholderStates({
+      addToStory: false,
+      shareToFeed: true,
+      enableComments: true,
+    });
+  }, []);
 
-  const selectedLocation = useMemo(
-    () => locations.find((loc) => loc.id === formData.locationId),
-    [locations, formData.locationId]
-  );
+  // ---------------------------------------------------------------------------
+  // Close / Exit logic
+  // ---------------------------------------------------------------------------
 
-  /** Build the input shape expected by createMemorySchema from current form state. */
-  const buildSchemaInput = useCallback(
-    () => ({
-      title: formData.title,
-      description: formData.description || undefined,
-      visibility: formData.visibility,
-      locationId: formData.locationId,
-      tags: formData.tags.length > 0 ? formData.tags : undefined,
-    }),
-    [
-      formData.title,
-      formData.description,
-      formData.visibility,
-      formData.locationId,
-      formData.tags,
-    ]
-  );
+  const handleAttemptClose = useCallback(() => {
+    if (isDirty) {
+      setShowExitConfirm(true);
+    } else {
+      resetState();
+      onOpenChange(false);
+    }
+  }, [isDirty, resetState, onOpenChange]);
+
+  const handleConfirmDiscard = useCallback(() => {
+    setShowExitConfirm(false);
+    resetState();
+    onOpenChange(false);
+  }, [resetState, onOpenChange]);
+
+  const handleKeepEditing = useCallback(() => {
+    setShowExitConfirm(false);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // File handling
   // ---------------------------------------------------------------------------
 
-  const handleFileSelect = useCallback(
-    (file: File | undefined) => {
-      if (!file) return;
+  const handleFilesSelected = useCallback((files: FileList | File[]) => {
+    const fileArray = Array.from(files);
 
-      if (formData.mediaPreviewUrl) {
-        URL.revokeObjectURL(formData.mediaPreviewUrl);
+    const newFiles: UploadingFile[] = fileArray.map((file) => ({
+      file,
+      id: generateId(),
+      progress: 0,
+      status: 'uploading' as const,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    setUploadingFiles((prev) => [...prev, ...newFiles]);
+
+    // Upload each file
+    newFiles.forEach((uploadFile) => {
+      uploadFileWithProgress(uploadFile.file, (percent) => {
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.id === uploadFile.id ? { ...f, progress: percent } : f
+          )
+        );
+      })
+        .then((url) => {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === uploadFile.id
+                ? { ...f, status: 'complete', progress: 100, uploadedUrl: url }
+                : f
+            )
+          );
+        })
+        .catch(() => {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === uploadFile.id
+                ? { ...f, status: 'error', progress: 0 }
+                : f
+            )
+          );
+        });
+    });
+  }, []);
+
+  const handleRemoveFile = useCallback((fileId: string) => {
+    setUploadingFiles((prev) => {
+      const file = prev.find((f) => f.id === fileId);
+      if (file) {
+        URL.revokeObjectURL(file.previewUrl);
       }
+      return prev.filter((f) => f.id !== fileId);
+    });
+  }, []);
 
-      const previewUrl = URL.createObjectURL(file);
-      setFormData((prev) => ({
-        ...prev,
-        mediaFile: file,
-        mediaPreviewUrl: previewUrl,
-      }));
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next['mediaFile'];
-        delete next['mediaPreviewUrl'];
-        return next;
-      });
+  const handleRetryUpload = useCallback(
+    (fileId: string) => {
+      const fileToRetry = uploadingFiles.find((f) => f.id === fileId);
+      if (!fileToRetry) return;
+
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'uploading', progress: 0 } : f
+        )
+      );
+
+      uploadFileWithProgress(fileToRetry.file, (percent) => {
+        setUploadingFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, progress: percent } : f))
+        );
+      })
+        .then((url) => {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileId
+                ? { ...f, status: 'complete', progress: 100, uploadedUrl: url }
+                : f
+            )
+          );
+        })
+        .catch(() => {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileId ? { ...f, status: 'error', progress: 0 } : f
+            )
+          );
+        });
     },
-    [formData.mediaPreviewUrl]
+    [uploadingFiles]
   );
 
-  const handleRemoveFile = useCallback(() => {
-    if (formData.mediaPreviewUrl) {
-      URL.revokeObjectURL(formData.mediaPreviewUrl);
-    }
-    updateField('mediaFile', null);
-    updateField('mediaPreviewUrl', null);
-  }, [formData.mediaPreviewUrl, updateField]);
-
   // ---------------------------------------------------------------------------
-  // Step validation
+  // Drag and drop
   // ---------------------------------------------------------------------------
 
-  const validateCurrentStep = useCallback((): boolean => {
-    const newErrors: Record<string, string> = {};
+  const [isDragging, setIsDragging] = useState(false);
 
-    if (currentStep === 'landmark' && !formData.locationId) {
-      newErrors.locationId = 'Please select a landmark';
-    }
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
 
-    if (currentStep === 'details') {
-      const detailsOnly = createMemorySchema.pick({
-        title: true,
-        description: true,
-        visibility: true,
-        tags: true,
-      });
-      const result = detailsOnly.safeParse(buildSchemaInput());
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
 
-      if (!result.success) {
-        for (const issue of result.error.issues) {
-          const field = issue.path[0];
-          if (field && typeof field === 'string') {
-            newErrors[field] = issue.message;
-          }
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const mediaFiles = Array.from(files).filter(
+          (f) => f.type.startsWith('image/') || f.type.startsWith('video/')
+        );
+        if (mediaFiles.length > 0) {
+          handleFilesSelected(mediaFiles);
         }
       }
-    }
-
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      console.log('[AddMemoryModal] Validation errors:', newErrors);
-    }
-    return Object.keys(newErrors).length === 0;
-  }, [currentStep, formData.locationId, buildSchemaInput]);
+    },
+    [handleFilesSelected]
+  );
 
   // ---------------------------------------------------------------------------
-  // Navigation
+  // Tab navigation
   // ---------------------------------------------------------------------------
 
   const handleNext = useCallback(() => {
-    console.log(
-      '[AddMemoryModal] attempting to go to next step from',
-      currentStep
-    );
-    if (!validateCurrentStep()) return;
-    if (currentStepIndex < STEPS.length - 1) {
-      const next = STEPS[currentStepIndex + 1];
-      console.log('[AddMemoryModal] stepping to', next);
-      setCurrentStep(next);
+    // TODO: re-enable upload check once backend is wired up
+    // if (activeTab === 'upload' && !hasCompletedUploads) return;
+
+    const nextIndex = activeTabIndex + 1;
+    if (nextIndex < TABS.length) {
+      const nextTab = TABS[nextIndex];
+      setActiveTab(nextTab);
+      setHighestReachedTab((prev) => Math.max(prev, nextIndex));
     }
-  }, [validateCurrentStep, currentStepIndex, currentStep]);
+  }, [activeTabIndex]);
 
   const handleBack = useCallback(() => {
-    if (currentStepIndex > 0) {
-      setCurrentStep(STEPS[currentStepIndex - 1]);
+    if (activeTabIndex > 0) {
+      setActiveTab(TABS[activeTabIndex - 1]);
     }
-  }, [currentStepIndex]);
+  }, [activeTabIndex]);
 
-  const handleCancel = useCallback(() => {
-    if (formData.mediaPreviewUrl) {
-      URL.revokeObjectURL(formData.mediaPreviewUrl);
-    }
-    onOpenChange(false);
-    setCurrentStep('upload');
-    setFormData(INITIAL_FORM_DATA);
-    setErrors({});
-    setShowConfirmation(false);
-    setHasAgreed(false);
-    setSelectedLocationName(null);
-  }, [onOpenChange, formData.mediaPreviewUrl]);
+  const handleTabClick = useCallback(
+    (tab: Tab) => {
+      const tabIndex = TABS.indexOf(tab);
+      if (tabIndex <= highestReachedTab) {
+        setActiveTab(tab);
+      }
+    },
+    [highestReachedTab]
+  );
 
   // ---------------------------------------------------------------------------
   // Submit
   // ---------------------------------------------------------------------------
 
-  const handleSubmit = useCallback(() => {
-    console.log(
-      '[AddMemoryModal] handleSubmit triggered, current data:',
-      buildSchemaInput()
-    );
-    const parsed = createMemorySchema.safeParse(buildSchemaInput());
+  const handleSave = useCallback(() => {
+    setSubmitError(null);
 
-    if (!parsed.success) {
-      const newErrors: Record<string, string> = {};
-      for (const issue of parsed.error.issues) {
-        const field = issue.path[0];
-        if (field && typeof field === 'string') {
-          newErrors[field] = issue.message;
-        }
-      }
-      setErrors(newErrors);
-      setCurrentStep('details');
+    const firstCompleted = completedFiles[0];
+
+    // TODO: re-enable upload requirement once backend is wired up
+    if (!firstCompleted) {
+      // No uploaded files — show success toast directly for testing
+      setShowSuccess(true);
+      setTimeout(() => {
+        resetState();
+        onOpenChange(false);
+      }, 2000);
       return;
     }
 
-    setShowConfirmation(true);
-  }, [buildSchemaInput]);
-
-  const handleConfirmedSubmit = useCallback(() => {
-    if (!hasAgreed) return;
-
-    const parsed = createMemorySchema.safeParse(buildSchemaInput());
-    if (!parsed.success) return;
-
-    const MOCK_PROGRAM_BATCH_ID = '50000000-0000-4000-8000-000000000001';
+    const locationId = locations[0]?.id ?? '';
 
     createMemory(
       {
-        ...parsed.data,
+        title: caption.trim() || 'Untitled Memory',
+        description: caption.trim() || undefined,
+        visibility,
+        locationId,
         programBatchId: MOCK_PROGRAM_BATCH_ID,
-        mediaFile: formData.mediaFile ?? undefined,
+        mediaFile: firstCompleted.file,
       },
       {
         onSuccess: () => {
-          handleCancel();
+          setShowSuccess(true);
+          setTimeout(() => {
+            resetState();
+            onOpenChange(false);
+          }, 2000);
         },
-        onError: (err) => console.error('create failed', err),
+        onError: (err) => {
+          setSubmitError(
+            err instanceof Error ? err.message : 'Failed to save memory'
+          );
+        },
       }
     );
   }, [
-    buildSchemaInput,
+    completedFiles,
+    caption,
+    visibility,
+    locations,
     createMemory,
-    handleCancel,
-    hasAgreed,
-    formData.mediaFile,
+    resetState,
+    onOpenChange,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -363,7 +535,6 @@ export function AddMemoryModal({
   const handleMapSelection = useCallback(
     async (selection: MapLocationSelection) => {
       if (selection.mode === 'landmark' && selection.locationId) {
-        updateField('locationId', selection.locationId);
         setSelectedLocationName(
           selection.landmark?.name ?? 'Selected Landmark'
         );
@@ -374,21 +545,16 @@ export function AddMemoryModal({
             latitude: selection.customLocation.latitude,
             longitude: selection.customLocation.longitude,
           });
-          updateField('locationId', result.data.id);
           setSelectedLocationName(result.data.buildingName);
         } catch (err) {
           console.error(
             '[AddMemoryModal] Failed to create custom location:',
             err
           );
-          setErrors((prev) => ({
-            ...prev,
-            locationId: 'Failed to create location. Please try again.',
-          }));
         }
       }
     },
-    [updateField, createCustomLocation]
+    [createCustomLocation]
   );
 
   const handleSelectOnMap = useCallback(
@@ -399,446 +565,577 @@ export function AddMemoryModal({
   );
 
   // ---------------------------------------------------------------------------
-  // Step renderers
+  // Placeholder handlers
   // ---------------------------------------------------------------------------
 
-  const renderUploadStep = () => (
-    <div className="flex flex-col items-center justify-center gap-4">
-      {defaultEra != null && (
-        <div className="flex w-full items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
-          <Calendar className="h-4 w-4 text-sky-600" />
-          <span className="text-sm text-sky-700">
-            Adding to the <span className="font-semibold">{defaultEra}s</span>{' '}
-            era
-          </span>
-        </div>
-      )}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const updatePlaceholder = useCallback(
+    <K extends keyof PlaceholderStates>(
+      key: K,
+      value: PlaceholderStates[K]
+    ) => {
+      setPlaceholderStates((prev) => ({ ...prev, [key]: value }));
+      // TODO: Implement backend integration for placeholder states
+      console.log(
+        `[AddMemoryModal] placeholder state changed: ${key} = ${String(value)}`
+      );
+    },
+    []
+  );
+
+  // ---------------------------------------------------------------------------
+  // Tab: Upload Media
+  // ---------------------------------------------------------------------------
+
+  const renderUploadTab = () => (
+    <div className="flex h-full flex-col gap-4">
+      {/* Upload bin */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        className={`flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors ${
+          isDragging
+            ? 'border-skolaroid-blue bg-blue-50/50'
+            : 'border-gray-300 hover:border-skolaroid-blue hover:bg-blue-50/30'
+        }`}
+      >
+        <Upload className="h-5 w-5 text-gray-400" />
+        <p className="text-sm font-medium text-gray-600">
+          Drag and drop or click to browse
+        </p>
+        <p className="text-xs text-gray-400">
+          Supports images and videos up to 10MB
+        </p>
+      </div>
+
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*,video/*"
+        multiple
         className="hidden"
-        onChange={(e) => handleFileSelect(e.target.files?.[0])}
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleFilesSelected(e.target.files);
+          }
+          e.target.value = '';
+        }}
       />
 
-      {formData.mediaPreviewUrl ? (
-        <div className="relative h-48 w-full">
-          <Image
-            src={formData.mediaPreviewUrl}
-            alt="Preview"
-            fill
-            className="rounded-lg object-cover"
-            unoptimized
-          />
-          <button
-            type="button"
-            onClick={handleRemoveFile}
-            className="absolute right-2 top-2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <p className="mt-2 text-center text-xs text-gray-500">
-            {formData.mediaFile?.name}
-          </p>
+      {/* Upload progress for files currently uploading */}
+      {uploadingFiles.some((f) => f.status === 'uploading') && (
+        <div className="space-y-2">
+          {uploadingFiles
+            .filter((f) => f.status === 'uploading')
+            .map((f) => (
+              <div key={f.id} className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-gray-700">
+                    {f.file.name}
+                  </p>
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className="h-full rounded-full bg-skolaroid-blue transition-all duration-300"
+                      style={{ width: `${f.progress}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-xs tabular-nums text-gray-500">
+                  {f.progress}%
+                </span>
+              </div>
+            ))}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex h-48 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 transition-colors hover:border-skolaroid-blue hover:bg-gray-50"
-        >
-          <ImageIcon className="h-8 w-8 text-gray-400" />
-          <p className="text-sm text-gray-500">Click to browse your media</p>
-          <p className="text-xs text-gray-400">Supports images and videos</p>
-        </button>
+      )}
+
+      {/* Error files */}
+      {uploadingFiles.some((f) => f.status === 'error') && (
+        <div className="space-y-2">
+          {uploadingFiles
+            .filter((f) => f.status === 'error')
+            .map((f) => (
+              <div
+                key={f.id}
+                className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-3 py-2"
+              >
+                <p className="truncate text-xs text-red-600">
+                  {f.file.name} — upload failed
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleRetryUpload(f.id)}
+                    className="text-xs font-medium text-red-600 hover:text-red-800"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFile(f.id)}
+                    className="text-red-400 hover:text-red-600"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* View mode toggles + file previews */}
+      {completedFiles.length > 0 && (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-gray-500">
+              {completedFiles.length} file
+              {completedFiles.length !== 1 ? 's' : ''} uploaded
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`rounded p-1 ${
+                  viewMode === 'grid' ? 'bg-gray-200' : 'hover:bg-gray-100'
+                }`}
+              >
+                <Grid3X3 className="h-4 w-4 text-gray-600" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`rounded p-1 ${
+                  viewMode === 'list' ? 'bg-gray-200' : 'hover:bg-gray-100'
+                }`}
+              >
+                <List className="h-4 w-4 text-gray-600" />
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-3 gap-2">
+              {completedFiles.map((f) => (
+                <div
+                  key={f.id}
+                  className="group relative aspect-square overflow-hidden rounded-md"
+                >
+                  <Image
+                    src={f.previewUrl}
+                    alt={f.file.name}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(f.id)}
+                      className="rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="absolute bottom-1 right-1">
+                    <CheckCircle className="h-4 w-4 text-emerald-500 drop-shadow" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {completedFiles.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex items-center gap-3 rounded-md border border-gray-200 p-2"
+                >
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded">
+                    <Image
+                      src={f.previewUrl}
+                      alt={f.file.name}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-gray-700">
+                      {f.file.name}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {formatFileSize(f.file.size)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(f.id)}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-xs text-gray-400">
+            You can upload multiple photos and videos to your memory.
+          </p>
+        </>
       )}
     </div>
   );
 
-  const renderLandmarkStep = () => (
-    <div className="space-y-4">
-      <label className="block text-sm font-medium text-gray-700">
-        Select a Location
-      </label>
-      {errors.locationId && (
-        <p className="text-sm text-red-500">{errors.locationId}</p>
-      )}
+  // ---------------------------------------------------------------------------
+  // Tab: Add Caption
+  // ---------------------------------------------------------------------------
 
-      {/* Selected location display */}
-      {formData.locationId && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
-          <MapPin className="h-4 w-4 text-green-600" />
-          <span className="text-sm font-medium text-green-700">
-            {selectedLocationName ??
-              selectedLocation?.buildingName ??
-              'Location selected'}
-          </span>
+  const renderCaptionTab = () => (
+    <div className="flex h-full flex-col">
+      {/* Header: Main Caption + action icons */}
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Main Caption</h3>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => captionRef.current?.focus()}
+            className="text-gray-600 hover:text-gray-900"
+          >
+            <Pencil className="h-5 w-5" />
+          </button>
           <button
             type="button"
             onClick={() => {
-              updateField('locationId', '');
-              setSelectedLocationName(null);
+              // TODO: Implement pause/stop functionality
+              console.log('[AddMemoryModal] pause clicked');
             }}
-            className="ml-auto text-green-600 hover:text-green-800"
+            className="text-gray-600 hover:text-gray-900"
           >
-            <X className="h-3.5 w-3.5" />
+            <Trash2 className="h-5 w-5" />
           </button>
-        </div>
-      )}
-
-      {/* Map Selection Buttons */}
-      {onRequestMapSelection && (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => handleSelectOnMap('landmark')}
-            className="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-skolaroid-blue bg-blue-50/50 p-4 text-left transition-colors hover:bg-blue-50"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-skolaroid-blue text-white">
-              <MapPin className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-skolaroid-blue">
-                Select Landmark on Map
-              </p>
-              <p className="text-xs text-gray-500">
-                Click a landmark directly on the interactive map
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSelectOnMap('custom')}
-            className="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50 p-4 text-left transition-colors hover:border-gray-400 hover:bg-gray-50"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-500 text-white">
-              <MapPin className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-700">
-                Pinpoint Custom Location
-              </p>
-              <p className="text-xs text-gray-500">
-                Click anywhere on the map to drop a pin
-              </p>
-            </div>
-          </button>
-        </div>
-      )}
-
-      {/* List Selection Fallback */}
-      <div className="space-y-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-          Or select from list
-        </p>
-        <div className="max-h-48 space-y-2 overflow-y-auto">
-          {locationsLoading && (
-            <p className="text-sm text-gray-400">Loading landmarks…</p>
-          )}
-          {locations.map((location) => (
-            <button
-              key={location.id}
-              type="button"
-              onClick={() => {
-                updateField('locationId', location.id);
-                setSelectedLocationName(location.buildingName);
-              }}
-              className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
-                formData.locationId === location.id
-                  ? 'border-skolaroid-blue bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <MapPin
-                className={`mt-0.5 h-4 w-4 shrink-0 ${
-                  formData.locationId === location.id
-                    ? 'text-skolaroid-blue'
-                    : 'text-gray-400'
-                }`}
-              />
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  {location.buildingName}
-                </p>
-                {location.description && (
-                  <p className="text-xs text-gray-500">
-                    {location.description}
-                  </p>
-                )}
-              </div>
-            </button>
-          ))}
         </div>
       </div>
-    </div>
-  );
 
-  const renderDetailsStep = () => (
-    <div className="space-y-4">
-      {/* Title */}
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Title <span className="text-red-500">*</span>
-        </label>
-        <Input
-          value={formData.title}
-          onChange={(e) => updateField('title', e.target.value)}
-          placeholder="Give your memory a title"
-          maxLength={255}
-        />
-        {errors.title && <p className="text-sm text-red-500">{errors.title}</p>}
-      </div>
-
-      {/* Description */}
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Description
-        </label>
+      {/* Caption card */}
+      <div className="mb-4 flex flex-col items-center rounded-xl bg-gray-100 px-8 py-10">
         <textarea
-          value={formData.description}
-          onChange={(e) => updateField('description', e.target.value)}
-          placeholder="Tell the story behind this memory..."
-          className="h-24 w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-skolaroid-blue focus:outline-none"
-          maxLength={5000}
+          ref={captionRef}
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          placeholder="Write a caption..."
+          className="w-full resize-none border-none bg-transparent text-center font-dancing text-2xl leading-relaxed text-gray-800 placeholder:text-gray-400 focus:outline-none"
+          rows={3}
         />
-      </div>
-
-      {/* Tags */}
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Tags ({formData.tags.length}/{MAX_TAGS})
-        </label>
-        <TagInput
-          tags={formData.tags}
-          onTagsChange={(newTags) => updateField('tags', newTags)}
-        />
-      </div>
-
-      {/* Visibility */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Privacy
-        </label>
-        <div className="space-y-2">
-          {VISIBILITY_OPTIONS.map((option) => (
-            <label
-              key={option.value}
-              className="flex cursor-pointer items-start gap-3"
-            >
-              <input
-                type="radio"
-                name="visibility"
-                value={option.value}
-                checked={formData.visibility === option.value}
-                onChange={() => updateField('visibility', option.value)}
-                className="mt-0.5 h-4 w-4 text-skolaroid-blue"
-              />
-              <div>
-                <span className="text-sm font-medium text-gray-700">
-                  {option.label}
-                </span>
-                <p className="text-xs text-gray-500">{option.description}</p>
-              </div>
-            </label>
-          ))}
+        {/* Three icon buttons */}
+        <div className="mt-4 flex items-center gap-5">
+          <button
+            type="button"
+            onClick={() => {
+              // TODO: Implement copy
+              console.log('[AddMemoryModal] copy clicked');
+            }}
+            className="text-gray-500 hover:text-gray-800"
+          >
+            <Copy className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              // TODO: Implement heart/favorite
+              console.log('[AddMemoryModal] heart clicked');
+            }}
+            className="text-gray-500 hover:text-gray-800"
+          >
+            <Heart className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              // TODO: Implement share
+              console.log('[AddMemoryModal] share clicked');
+            }}
+            className="text-gray-500 hover:text-gray-800"
+          >
+            <Share className="h-5 w-5" />
+          </button>
         </div>
       </div>
-    </div>
-  );
 
-  const renderPreviewStep = () => (
-    <div className="space-y-4">
-      {/* Media preview */}
-      {formData.mediaPreviewUrl ? (
-        <div className="relative h-32 w-full">
-          <Image
-            src={formData.mediaPreviewUrl}
-            alt="Preview"
-            fill
-            className="rounded-lg object-cover"
-            unoptimized
+      {/* Table header */}
+      <div className="flex items-center border-b border-gray-200 pb-2">
+        <div className="w-8">
+          <Checkbox
+            id="select-all-media"
+            onCheckedChange={(checked) => {
+              // TODO: Implement select all
+              console.log('[AddMemoryModal] select all:', checked);
+            }}
           />
         </div>
-      ) : (
-        <div className="flex h-32 items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-400">
-          No media uploaded
-        </div>
-      )}
-
-      {/* Location */}
-      <div className="flex items-center gap-2 text-sm">
-        <MapPin className="h-4 w-4 text-skolaroid-blue" />
-        <span className="font-medium">
-          {selectedLocation?.buildingName ?? 'No location selected'}
+        <span className="w-20 text-xs font-medium text-gray-500">Image</span>
+        <span className="flex-1 text-xs font-medium text-gray-500">
+          Caption
         </span>
+        <span className="w-24 text-xs font-medium text-gray-500">
+          Orientation
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            // TODO: Implement sort
+            console.log('[AddMemoryModal] sort clicked');
+          }}
+          className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+        >
+          <ArrowUpDown className="h-3 w-3" />
+          Sort
+        </button>
       </div>
 
-      {/* Title & Description */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900">
-          {formData.title || 'Untitled'}
-        </h3>
-        {formData.description && (
-          <p className="mt-1 text-sm text-gray-600">{formData.description}</p>
-        )}
-      </div>
-
-      {/* Tags */}
-      {formData.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {formData.tags.map((tag) => (
-            <Badge key={tag} variant="secondary">
-              {tag}
-            </Badge>
-          ))}
+      {/* Table row(s) */}
+      <div className="flex items-center py-3">
+        <div className="w-8">
+          <Checkbox
+            id="select-row-1"
+            onCheckedChange={(checked) => {
+              // TODO: Implement row selection
+              console.log('[AddMemoryModal] row 1 selected:', checked);
+            }}
+          />
         </div>
-      )}
-
-      {/* Visibility */}
-      <Badge variant="outline">
-        {VISIBILITY_OPTIONS.find((v) => v.value === formData.visibility)?.label}
-      </Badge>
+        <div className="flex w-20 items-center justify-center">
+          {completedFiles.length > 0 ? (
+            <div className="relative h-12 w-12 overflow-hidden rounded border border-gray-200">
+              <Image
+                src={completedFiles[0].previewUrl}
+                alt={completedFiles[0].file.name}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded border border-gray-200 bg-gray-50">
+              <ImageIcon className="h-5 w-5 text-gray-300" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-800">Getting started</p>
+          <p className="text-xs text-gray-400">No caption</p>
+        </div>
+        <div className="flex w-24 items-center justify-center">
+          <Crop className="h-5 w-5 text-gray-400" />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            // TODO: Implement row edit
+            console.log('[AddMemoryModal] edit row clicked');
+          }}
+          className="text-gray-600 hover:text-gray-900"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 
-  const STEP_RENDERERS: Record<Step, () => React.ReactNode> = {
-    upload: renderUploadStep,
-    landmark: renderLandmarkStep,
-    details: renderDetailsStep,
-    preview: renderPreviewStep,
+  // ---------------------------------------------------------------------------
+  // Tab: Privacy
+  // ---------------------------------------------------------------------------
+
+  const renderPrivacyTab = () => (
+    <div className="flex h-full flex-col gap-6">
+      {/* Live */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          <FileText className="mt-0.5 h-5 w-5 text-gray-700" />
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Live</p>
+            <p className="text-xs text-gray-500">2 Months Ago by user</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Moderation */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          <Info className="mt-0.5 h-5 w-5 text-gray-700" />
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Moderation</p>
+            <p className="text-xs text-gray-500">
+              Approved 7 days ago by Kint Borbano
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            // TODO: Implement view details
+            console.log('[AddMemoryModal] view details clicked');
+          }}
+          className="text-sm font-medium text-skolaroid-blue hover:underline"
+        >
+          View Details
+        </button>
+      </div>
+
+      {/* English */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          <Globe className="mt-0.5 h-5 w-5 text-gray-700" />
+          <div>
+            <p className="text-sm font-semibold text-gray-900">English</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            // TODO: Implement switch locales
+            console.log('[AddMemoryModal] switch locales clicked');
+          }}
+          className="text-sm font-medium text-skolaroid-blue hover:underline"
+        >
+          Switch locales
+        </button>
+      </div>
+
+      {/* Visible to all */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          <Eye className="mt-0.5 h-5 w-5 text-gray-700" />
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              Visible to all
+            </p>
+            <p className="text-xs text-gray-500">Once live, anyone can see</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            // TODO: Implement set privacy
+            console.log('[AddMemoryModal] set privacy clicked');
+          }}
+          className="text-sm font-medium text-skolaroid-blue hover:underline"
+        >
+          Set privacy
+        </button>
+      </div>
+
+      {/* Submit error */}
+      {submitError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
+          <p className="text-sm text-red-600">{submitError}</p>
+        </div>
+      )}
+    </div>
+  );
+
+  // ---------------------------------------------------------------------------
+  // Tab renderer map
+  // ---------------------------------------------------------------------------
+
+  const TAB_RENDERERS: Record<Tab, () => React.ReactNode> = {
+    upload: renderUploadTab,
+    caption: renderCaptionTab,
+    privacy: renderPrivacyTab,
   };
 
   // ---------------------------------------------------------------------------
   // Main render
   // ---------------------------------------------------------------------------
 
-  const isLastStep = currentStep === 'preview';
-
   return (
     <>
-      {/* Confirmation Modal */}
-      <Dialog
-        open={showConfirmation}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            setShowConfirmation(false);
-            setHasAgreed(false);
-          }
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogTitle className="text-xl font-semibold text-gray-900">
-            Confirm Submission
+      {/* Exit confirmation dialog */}
+      <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle className="text-lg font-semibold text-gray-900">
+            Discard changes?
           </DialogTitle>
-          <div className="space-y-4 py-4">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <p className="text-sm leading-relaxed text-gray-700">
-                By submitting this content, you confirm that:
-              </p>
-              <ul className="mt-3 space-y-2 text-sm text-gray-700">
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-skolaroid-blue">•</span>
-                  <span>You have the legal right to share this content</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-skolaroid-blue">•</span>
-                  <span>
-                    The content does not infringe on any intellectual property
-                    rights
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-skolaroid-blue">•</span>
-                  <span>
-                    You agree to our content policy and community guidelines
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-skolaroid-blue">•</span>
-                  <span>
-                    The content is appropriate and does not violate any laws or
-                    regulations
-                  </span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="flex items-start gap-3 rounded-lg border-2 border-gray-300 p-4">
-              <Checkbox
-                id="agree-terms"
-                checked={hasAgreed}
-                onCheckedChange={(checked) => setHasAgreed(checked === true)}
-                className="mt-0.5"
-              />
-              <label
-                htmlFor="agree-terms"
-                className="cursor-pointer text-sm font-medium leading-relaxed text-gray-900"
-              >
-                I confirm that I have read and agree to all of the above terms
-                and conditions
-              </label>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowConfirmation(false);
-                setHasAgreed(false);
-              }}
-              disabled={isPending}
-            >
-              Cancel
+          <p className="text-sm text-gray-600">
+            You have unsaved changes that will be lost.
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={handleKeepEditing}>
+              Keep Editing
             </Button>
-            <Button
-              onClick={handleConfirmedSubmit}
-              disabled={!hasAgreed || isPending}
-              className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
-            >
-              {isPending ? 'Submitting...' : 'Confirm & Submit'}
+            <Button variant="destructive" onClick={handleConfirmDiscard}>
+              Discard
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Main Add Memory Modal */}
+      {/* Main modal */}
       <Dialog
-        open={open && !showConfirmation}
+        open={open && !showExitConfirm}
         onOpenChange={(isOpen) => {
-          if (!isOpen) handleCancel();
-          else onOpenChange(true);
+          if (!isOpen) {
+            handleAttemptClose();
+          } else {
+            onOpenChange(true);
+          }
         }}
       >
         <DialogContent
-          className="flex h-[500px] max-w-2xl gap-0 overflow-hidden p-0"
+          className="flex h-[540px] max-w-2xl gap-0 overflow-hidden p-0"
           showCloseButton={false}
         >
-          {/* Tabs Sidebar */}
+          {/* Success toast overlay */}
+          <AnimatePresence>
+            {showSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-x-0 top-0 z-50 flex items-center justify-center p-4"
+              >
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-md">
+                  <CheckCircle className="h-5 w-5 text-emerald-600" />
+                  <p className="text-sm font-medium text-emerald-800">
+                    Memory uploaded successfully!
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Left Sidebar */}
           <div className="flex w-48 flex-col border-r bg-gray-50">
             <div className="flex-1 p-6">
               <DialogTitle className="sr-only">Add Memory</DialogTitle>
-              <div className="space-y-4">
-                {STEPS.map((step, index) => {
-                  const meta = STEP_META[step];
+              <div className="space-y-3">
+                {TABS.map((tab, index) => {
+                  const meta = TAB_META[tab];
                   const Icon = meta.icon;
-                  const isActive = currentStep === step;
-                  const isAccessible = index <= currentStepIndex;
+                  const isActive = activeTab === tab;
+                  const isAccessible = index <= highestReachedTab;
 
                   return (
                     <button
-                      key={step}
-                      onClick={() => isAccessible && setCurrentStep(step)}
+                      key={tab}
+                      type="button"
+                      onClick={() => handleTabClick(tab)}
                       disabled={!isAccessible}
-                      className={`flex w-full items-center gap-2 text-left text-sm font-medium transition-colors ${
+                      className={`relative flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
                         isActive
-                          ? 'text-skolaroid-blue'
+                          ? 'bg-blue-50 text-skolaroid-blue'
                           : isAccessible
-                            ? 'text-gray-500 hover:text-gray-700'
+                            ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
                             : 'cursor-not-allowed text-gray-300'
                       }`}
                     >
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-skolaroid-blue" />
+                      )}
                       <Icon className="h-4 w-4" />
                       {meta.label}
                     </button>
@@ -846,48 +1143,93 @@ export function AddMemoryModal({
                 })}
               </div>
             </div>
+
+            {/* Thumbnail info box */}
+            <div className="mx-3 mb-4 rounded-lg bg-amber-100 p-3">
+              <ImageIcon className="mb-1 h-5 w-5 text-gray-700" />
+              <p className="text-xs text-gray-700">
+                The first image uploaded will be used as thumbnail
+              </p>
+            </div>
           </div>
+          <div className="relative flex flex-1 flex-col">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={handleAttemptClose}
+              className="absolute right-3 top-3 z-10 rounded-full p-1 hover:bg-gray-100"
+            >
+              <X className="h-4 w-4 text-gray-500" />
+            </button>
 
-          {/* Divider Line */}
-          <div className="w-px bg-gray-200" />
-
-          {/* Content Area */}
-          <div className="flex flex-1 flex-col">
-            <div className="flex-1 overflow-y-auto p-6">
-              {STEP_RENDERERS[currentStep]()}
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 pt-10">
+              {TAB_RENDERERS[activeTab]()}
             </div>
 
             {/* Footer */}
-            <div className="flex justify-between border-t bg-white px-6 py-4">
-              <div>
-                {currentStepIndex > 0 && (
-                  <Button variant="ghost" onClick={handleBack}>
+            <div className="flex justify-end gap-3 border-t bg-white px-6 py-4">
+              {activeTab === 'upload' && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="text-gray-700"
+                    onClick={handleAttemptClose}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleNext}
+                    className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
+                  >
+                    Next
+                  </Button>
+                </>
+              )}
+
+              {activeTab === 'caption' && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="text-gray-700"
+                    onClick={handleBack}
+                  >
                     Back
                   </Button>
-                )}
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleCancel}
-                  className="text-gray-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={isLastStep ? handleSubmit : handleNext}
-                  disabled={isPending || isCreatingLocation}
-                  className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
-                >
-                  {isPending
-                    ? 'Submitting...'
-                    : isCreatingLocation
-                      ? 'Creating location...'
-                      : isLastStep
-                        ? 'Submit'
-                        : 'Next'}
-                </Button>
-              </div>
+                  <Button
+                    onClick={handleNext}
+                    className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
+                  >
+                    Next
+                  </Button>
+                </>
+              )}
+
+              {activeTab === 'privacy' && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="text-gray-700"
+                    onClick={handleBack}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={isPending}
+                    className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save'
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </DialogContent>
