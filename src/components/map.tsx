@@ -304,27 +304,6 @@ export function MapComponent() {
   // Location Selection Mode handlers
   // ---------------------------------------------------------------------------
 
-  const handleRequestMapSelection = useCallback(
-    (
-      mode: 'landmark' | 'custom',
-      onSelect: (selection: MapLocationSelection) => void
-    ) => {
-      setLocationSelectionMode(mode);
-      locationSelectionCallbackRef.current = onSelect;
-
-      // Show landmarks when selecting a landmark
-      if (mode === 'landmark') {
-        setShowLandmarks(true);
-        setShowMemoryPins(false);
-      } else {
-        // Custom mode — hide landmarks so user can click freely
-        setShowLandmarks(false);
-        setShowMemoryPins(false);
-      }
-    },
-    []
-  );
-
   const handleCancelMapSelection = useCallback(() => {
     setLocationSelectionMode('inactive');
     locationSelectionCallbackRef.current = null;
