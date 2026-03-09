@@ -31,6 +31,7 @@ enum MemoryVisibility {
   PUBLIC        // Visible to everyone
   PROGRAM_ONLY  // Visible to all batches in the program
   BATCH_ONLY    // Visible only to specific batch
+  GROUP_ONLY    // Visible only to members of a specific private group
   PRIVATE       // Visible only to creator
 }
 
@@ -50,6 +51,8 @@ model User {
   // Relations
   memories       Memory[]
   votes          MemoryVote[]
+  groups         PrivateGroup[] @relation("GroupMembers")
+  createdGroups  PrivateGroup[] @relation("GroupCreator")
   
   // Status & Role
   status         Status   @default(STUDENT)
@@ -131,6 +134,10 @@ model Memory {
   // Relations
   tags           Tag[]            @relation("MemoryTags")
   votes          MemoryVote[]
+
+  // Private group (required when visibility = GROUP_ONLY)
+  privateGroupId String?          @db.Uuid
+  privateGroup   PrivateGroup?    @relation(fields: [privateGroupId], references: [id], onDelete: Restrict)
   
   // Creator (nullable to preserve memories if user deleted)
   creatorId      String?          @db.Uuid
@@ -160,6 +167,7 @@ model Memory {
   @@index([isArchived])
   @@index([deletedAt])
   @@index([createdAt]) // For chronological queries
+  @@index([privateGroupId])
 }
 
 // ============================================================================
@@ -219,4 +227,32 @@ model Tag {
 
   @@index([name])
   @@index([slug])
+}
+
+
+model PrivateGroup {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(50)
+  description String?   @db.Text
+
+  // Members (many-to-many)
+  members     User[]    @relation("GroupMembers")
+
+  // Memories posted to this group
+  memories    Memory[]
+
+  // Creator (nullable to preserve group if user deleted)
+  creatorId   String?   @db.Uuid
+  creator     User?     @relation("GroupCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+
+  // Soft delete
+  deletedAt   DateTime?
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([name])
+  @@index([creatorId])
+  @@index([deletedAt])
 }
