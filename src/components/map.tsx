@@ -20,6 +20,7 @@ import { ExpandableToolbar } from './expandable-toolbar';
 import { LandmarkMarker } from './map/LandmarkMarker';
 import { LandmarkMemoriesPanel } from './map/LandmarkMemoriesPanel';
 import { MemoryPin } from './map/MemoryPin';
+import { MemoryPinStack } from './map/MemoryPinStack';
 import { MemoryDetailModal } from './map/MemoryDetailModal';
 import { useMemoryCountsByLandmark } from '@/lib/hooks/useMemoryCountsByLandmark';
 import {
@@ -27,6 +28,11 @@ import {
   type MemoryWithCoordinates,
 } from '@/lib/hooks/useAllMemoriesWithCoordinates';
 import { LANDMARKS, type Landmark } from '@/lib/constants/landmarks';
+import type {
+  LocationSelectionMode,
+  MapLocationSelection,
+} from '@/lib/types/map';
+import { MapLocationSelector } from './map/MapLocationSelector';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -115,8 +121,16 @@ export function MapComponent() {
   const [selectedMemory, setSelectedMemory] =
     useState<MemoryWithCoordinates | null>(null);
   const [memoryDetailOpen, setMemoryDetailOpen] = useState(false);
-  const [showLandmarks, setShowLandmarks] = useState(true);
-  const [showMemoryPins, setShowMemoryPins] = useState(false);
+  const [showLandmarks, setShowLandmarks] = useState(false);
+  const [showMemoryPins, setShowMemoryPins] = useState(true);
+  // Location selection mode for Add Memory flow
+  const [locationSelectionMode, setLocationSelectionMode] =
+    useState<LocationSelectionMode>('inactive');
+  const [pendingLocationSelection, setPendingLocationSelection] =
+    useState<MapLocationSelection | null>(null);
+  const locationSelectionCallbackRef = useRef<
+    ((selection: MapLocationSelection) => void) | null
+  >(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const markerRootsRef = useRef<{ root: Root; landmark: Landmark }[]>([]);
   const memoryMarkersRef = useRef<mapboxgl.Marker[]>([]);
@@ -286,6 +300,47 @@ export function MapComponent() {
     pendingMemoryRef.current = null;
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Location Selection Mode handlers
+  // ---------------------------------------------------------------------------
+
+  const handleCancelMapSelection = useCallback(() => {
+    setLocationSelectionMode('inactive');
+    locationSelectionCallbackRef.current = null;
+    setPendingLocationSelection(null);
+    // Restore defaults
+    setShowLandmarks(false);
+    setShowMemoryPins(true);
+  }, []);
+
+  const handleLocationSelected = useCallback(
+    (selection: MapLocationSelection) => {
+      locationSelectionCallbackRef.current?.(selection);
+      setLocationSelectionMode('inactive');
+      locationSelectionCallbackRef.current = null;
+      setPendingLocationSelection(null);
+      // Restore defaults
+      setShowLandmarks(false);
+      setShowMemoryPins(true);
+    },
+    []
+  );
+
+  // Update click handler to integrate with selection mode
+  useEffect(() => {
+    handleClickRef.current = (landmark: Landmark) => {
+      if (locationSelectionMode === 'landmark') {
+        handleLocationSelected({
+          mode: 'landmark',
+          landmark,
+          locationId: landmark.id,
+        });
+        return;
+      }
+      setSelectedLandmark(landmark);
+    };
+  }, [locationSelectionMode, handleLocationSelected]);
+
   useLayoutEffect(() => {
     setIsClient(true);
     if (!MAPBOX_TOKEN) {
@@ -328,7 +383,7 @@ export function MapComponent() {
         map.addControl(new mapboxgl.NavigationControl(), 'top-left');
         map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
 
-        // Render landmark markers
+        // Create landmark markers (but don't add to map yet — visibility effect handles this)
         LANDMARKS.forEach((landmark) => {
           const el = document.createElement('div');
           const root = createRoot(el);
@@ -342,9 +397,11 @@ export function MapComponent() {
 
           markerRootsRef.current.push({ root, landmark });
 
-          const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat(landmark.coordinates)
-            .addTo(map);
+          const marker = new mapboxgl.Marker({
+            element: el,
+            anchor: 'bottom',
+          }).setLngLat(landmark.coordinates);
+          // Don't add to map here — let visibility effect handle it
 
           markersRef.current.push(marker);
         });
@@ -467,14 +524,21 @@ export function MapComponent() {
     }
   }, [memoryCounts, handleLandmarkClick]);
 
-  // Toggle landmark marker visibility
+  // Toggle landmark marker visibility by adding/removing from map
   useEffect(() => {
-    markersRef.current.forEach((marker) => {
-      const element = marker.getElement();
-      if (element) {
-        element.style.display = showLandmarks ? 'block' : 'none';
-      }
-    });
+    if (!mapRef.current) return;
+
+    if (showLandmarks) {
+      // Add landmark markers to the map
+      markersRef.current.forEach((marker) => {
+        marker.addTo(mapRef.current!);
+      });
+    } else {
+      // Remove landmark markers from the map
+      markersRef.current.forEach((marker) => {
+        marker.remove();
+      });
+    }
   }, [showLandmarks]);
 
   // Toggle memory pin marker visibility
@@ -492,7 +556,7 @@ export function MapComponent() {
     }
   }, [showMemoryPins]);
 
-  // Render memory pin markers
+  // Render memory pin markers (with stacking for overlapping locations)
   useEffect(() => {
     if (!mapRef.current || memories.length === 0 || !showMemoryPins) return;
 
@@ -507,28 +571,65 @@ export function MapComponent() {
       oldRoots.forEach((r) => r.unmount());
     }, 0);
 
-    // Render memory pins (only for the active era)
-    eraFilteredMemories.forEach((memory) => {
-      if (!memory.mediaURL) return;
+    // Group memories by location coordinates (rounded to 5 decimal places)
+    const groups = new Map<
+      string,
+      { lng: number; lat: number; memories: typeof eraFilteredMemories }
+    >();
 
+    for (const memory of eraFilteredMemories) {
+      if (!memory.mediaURL) continue;
+      const key = `${memory.location.longitude.toFixed(5)},${memory.location.latitude.toFixed(5)}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          lng: memory.location.longitude,
+          lat: memory.location.latitude,
+          memories: [],
+        });
+      }
+      groups.get(key)!.memories.push(memory);
+    }
+
+    // Render grouped pins
+    for (const [, group] of groups) {
       const el = document.createElement('div');
       const root = createRoot(el);
-      root.render(
-        <MemoryPin
-          src={memory.mediaURL}
-          alt={memory.title}
-          onClick={() => handleMemoryClick(memory)}
-        />
-      );
+
+      if (group.memories.length === 1) {
+        const memory = group.memories[0];
+        root.render(
+          <MemoryPin
+            src={memory.mediaURL!}
+            alt={memory.title}
+            onClick={() => handleMemoryClick(memory)}
+          />
+        );
+      } else {
+        root.render(
+          <MemoryPinStack
+            memories={group.memories
+              .filter((m) => m.mediaURL)
+              .map((m) => ({
+                id: m.id,
+                title: m.title,
+                mediaURL: m.mediaURL!,
+              }))}
+            onClick={(memoryId) => {
+              const found = group.memories.find((m) => m.id === memoryId);
+              if (found) handleMemoryClick(found);
+            }}
+          />
+        );
+      }
 
       memoryRootsRef.current.push(root);
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([memory.location.longitude, memory.location.latitude])
+        .setLngLat([group.lng, group.lat])
         .addTo(mapRef.current!);
 
       memoryMarkersRef.current.push(marker);
-    });
+    }
   }, [
     eraFilteredMemories,
     eraFilteredMemories.length,
@@ -652,13 +753,27 @@ export function MapComponent() {
 
       {/* Add Memory Modal */}
       <AddMemoryModal
-        open={addMemoryOpen}
+        open={addMemoryOpen && locationSelectionMode === 'inactive'}
         onOpenChange={(isOpen) => {
           setAddMemoryOpen(isOpen);
-          if (!isOpen) setAddMemoryEra(null);
+          if (!isOpen) {
+            setAddMemoryEra(null);
+            handleCancelMapSelection();
+          }
         }}
         defaultEra={addMemoryEra}
       />
+
+      {/* Map Location Selector Overlay */}
+      {locationSelectionMode !== 'inactive' && (
+        <MapLocationSelector
+          mode={locationSelectionMode}
+          onCancel={handleCancelMapSelection}
+          onLocationSelected={handleLocationSelected}
+          pendingSelection={pendingLocationSelection}
+          mapRef={mapRef}
+        />
+      )}
 
       {/* Landmark Memories Panel */}
       <LandmarkMemoriesPanel
