@@ -20,6 +20,7 @@ import { ExpandableToolbar } from './expandable-toolbar';
 import { LandmarkMarker } from './map/LandmarkMarker';
 import { LandmarkMemoriesPanel } from './map/LandmarkMemoriesPanel';
 import { MemoryPin } from './map/MemoryPin';
+import { MemoryPinStack } from './map/MemoryPinStack';
 import { MemoryDetailModal } from './map/MemoryDetailModal';
 import { useMemoryCountsByLandmark } from '@/lib/hooks/useMemoryCountsByLandmark';
 import {
@@ -505,7 +506,7 @@ export function MapComponent() {
     }
   }, [showMemoryPins]);
 
-  // Render memory pin markers
+  // Render memory pin markers (with stacking for overlapping locations)
   useEffect(() => {
     if (!mapRef.current || memories.length === 0 || !showMemoryPins) return;
 
@@ -520,28 +521,65 @@ export function MapComponent() {
       oldRoots.forEach((r) => r.unmount());
     }, 0);
 
-    // Render memory pins (only for the active era)
-    eraFilteredMemories.forEach((memory) => {
-      if (!memory.mediaURL) return;
+    // Group memories by location coordinates (rounded to 5 decimal places)
+    const groups = new Map<
+      string,
+      { lng: number; lat: number; memories: typeof eraFilteredMemories }
+    >();
 
+    for (const memory of eraFilteredMemories) {
+      if (!memory.mediaURL) continue;
+      const key = `${memory.location.longitude.toFixed(5)},${memory.location.latitude.toFixed(5)}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          lng: memory.location.longitude,
+          lat: memory.location.latitude,
+          memories: [],
+        });
+      }
+      groups.get(key)!.memories.push(memory);
+    }
+
+    // Render grouped pins
+    for (const [, group] of groups) {
       const el = document.createElement('div');
       const root = createRoot(el);
-      root.render(
-        <MemoryPin
-          src={memory.mediaURL}
-          alt={memory.title}
-          onClick={() => handleMemoryClick(memory)}
-        />
-      );
+
+      if (group.memories.length === 1) {
+        const memory = group.memories[0];
+        root.render(
+          <MemoryPin
+            src={memory.mediaURL!}
+            alt={memory.title}
+            onClick={() => handleMemoryClick(memory)}
+          />
+        );
+      } else {
+        root.render(
+          <MemoryPinStack
+            memories={group.memories
+              .filter((m) => m.mediaURL)
+              .map((m) => ({
+                id: m.id,
+                title: m.title,
+                mediaURL: m.mediaURL!,
+              }))}
+            onClick={(memoryId) => {
+              const found = group.memories.find((m) => m.id === memoryId);
+              if (found) handleMemoryClick(found);
+            }}
+          />
+        );
+      }
 
       memoryRootsRef.current.push(root);
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([memory.location.longitude, memory.location.latitude])
+        .setLngLat([group.lng, group.lat])
         .addTo(mapRef.current!);
 
       memoryMarkersRef.current.push(marker);
-    });
+    }
   }, [
     eraFilteredMemories,
     eraFilteredMemories.length,
