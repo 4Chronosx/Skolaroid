@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { useOnboardUser } from '@/lib/hooks/useOnboardUser';
 import { useUserAuth } from '@/lib/hooks/useUserAuth';
@@ -21,9 +21,21 @@ interface OnboardingStep {
 type StatusValue = 'STUDENT' | 'ALUMNI';
 
 export default function OnboardingPage() {
+  return (
+    <Suspense>
+      <OnboardingContent />
+    </Suspense>
+  );
+}
+
+function OnboardingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const onboardUser = useOnboardUser();
   const { user } = useUserAuth();
+
+  // After onboarding, redirect to the original page (e.g. /invite?token=...)
+  const redirectTo = searchParams.get('redirect') || '/';
 
   // Extract first name from auth user
   const getAuthFirstName = () => {
@@ -214,7 +226,7 @@ export default function OnboardingPage() {
                       studentId,
                       status,
                     });
-                    router.push('/');
+                    router.push(redirectTo);
                   } catch (err) {
                     setOnboardError(
                       err instanceof Error

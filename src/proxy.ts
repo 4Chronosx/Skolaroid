@@ -2,7 +2,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { refreshSession } from '@/lib/supabase/proxy';
 
 /** Routes accessible without authentication. */
-const PUBLIC_ROUTES = ['/', '/auth/callback', '/auth/auth-code-error'];
+const PUBLIC_ROUTES = [
+  '/',
+  '/auth/callback',
+  '/auth/auth-code-error',
+  '/invite',
+];
 
 /** Routes accessible to authenticated-but-not-onboarded users. */
 const ONBOARDING_ROUTES = ['/onboarding', '/api/prisma/user/create'];
@@ -39,9 +44,20 @@ export async function proxy(request: NextRequest) {
   if (user) {
     const isOnboarded = user.app_metadata?.onboarded === true;
     // Step 3: Authenticated but NOT onboarded → force to /onboarding
+    // Preserve redirect param so /invite?token=... survives onboarding
     if (!isOnboarded && !matchesRoute(pathname, ONBOARDING_ROUTES)) {
       const url = request.nextUrl.clone();
+      const redirect = request.nextUrl.searchParams.get('redirect');
       url.pathname = '/onboarding';
+      // If currently on /invite, or there's an existing redirect param, preserve it
+      if (pathname.startsWith('/invite')) {
+        url.searchParams.set(
+          'redirect',
+          `${pathname}${request.nextUrl.search}`
+        );
+      } else if (redirect) {
+        url.searchParams.set('redirect', redirect);
+      }
       return NextResponse.redirect(url);
     }
 
