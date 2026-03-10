@@ -12,11 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  type GroupMember,
-  type GroupMemberRole,
-  MOCK_CURRENT_USER_ID,
-} from '@/lib/types/group';
+import { type GroupMember, type GroupMemberRole } from '@/lib/types/group';
 import { cn } from '@/lib/utils';
 import {
   MoreHorizontal,
@@ -30,11 +26,16 @@ import {
 interface MembersTabProps {
   members: GroupMember[];
   isOwner: boolean;
+  currentUserId: string;
 }
 
 type RoleFilterType = 'ALL' | GroupMemberRole;
 
-export function MembersTab({ members, isOwner }: MembersTabProps) {
+export function MembersTab({
+  members,
+  isOwner,
+  currentUserId,
+}: MembersTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilterType>('ALL');
 
@@ -162,7 +163,7 @@ export function MembersTab({ members, isOwner }: MembersTabProps) {
         {filteredMembers.length > 0 ? (
           <div className="flex flex-col gap-2">
             {filteredMembers.map((member) => {
-              const isCurrentUser = member.id === MOCK_CURRENT_USER_ID;
+              const isCurrentUser = member.id === currentUserId;
               const canManage = isOwner && !isCurrentUser;
 
               return (

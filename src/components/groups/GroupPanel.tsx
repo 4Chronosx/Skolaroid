@@ -11,11 +11,8 @@ import { DeleteGroupModal } from '@/components/groups/DeleteGroupModal';
 import { MembersTab } from '@/components/groups/tabs/MembersTab';
 import { MediaTab } from '@/components/groups/tabs/MediaTab';
 import { AboutTab } from '@/components/groups/tabs/AboutTab';
-import {
-  type Group,
-  MOCK_GROUPS,
-  MOCK_CURRENT_USER_ID,
-} from '@/lib/types/group';
+import { type Group, MOCK_GROUPS } from '@/lib/types/group';
+import { useUserAuth } from '@/hooks/useUserAuth';
 import { type GroupResponse } from '@/lib/hooks/useCreateGroup';
 import { cn } from '@/lib/utils';
 import {
@@ -61,6 +58,8 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('members');
 
   const { showSuccess } = useGroupToast();
+  const { user } = useUserAuth();
+  const currentUserId = user?.id ?? '';
 
   const handleGroupCreated = useCallback(
     (groupResponse: GroupResponse) => {
@@ -80,7 +79,10 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
           name:
             `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() ||
             member.email,
-          role: 'MEMBER' as const, // Set based on creator check if needed
+          role:
+            member.id === groupResponse.creatorId
+              ? ('OWNER' as const)
+              : ('MEMBER' as const),
           joinedAt: new Date().toISOString(),
         })),
         createdAt: groupResponse.createdAt,
@@ -109,9 +111,9 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
     [groups]
   );
 
-  const isOwner = selectedGroup?.ownerId === MOCK_CURRENT_USER_ID;
+  const isOwner = selectedGroup?.ownerId === currentUserId;
   const currentUserMember = selectedGroup?.members.find(
-    (m) => m.id === MOCK_CURRENT_USER_ID
+    (m) => m.id === currentUserId
   );
   const isAdmin = currentUserMember?.role === 'ADMIN';
 
@@ -294,6 +296,7 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
                     <MembersTab
                       members={selectedGroup.members}
                       isOwner={isOwner}
+                      currentUserId={currentUserId}
                     />
                   )}
                   {activeTab === 'media' && <MediaTab />}
