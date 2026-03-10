@@ -1,7 +1,13 @@
-import { prisma } from '@/lib/prisma';
-import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
+/**
+ * Handles the Supabase OAuth PKCE callback.
+ *
+ * After Google OAuth, Supabase redirects here with a `code` query param.
+ * This route exchanges the code for a session (server-side), sets the auth
+ * cookies, then redirects to `/`. The proxy will then enforce onboarding.
+ */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
@@ -11,25 +17,11 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // If the user already exists in the DB, skip onboarding
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const existingUser = await prisma.user.findUnique({
-          where: { id: user.id },
-        });
-
-        if (existingUser) {
-          return NextResponse.redirect(`${origin}/`);
-        }
-      }
-
-      return NextResponse.redirect(`${origin}/onboarding`);
+      // Redirect to home — the proxy will handle onboarding enforcement
+      return NextResponse.redirect(`${origin}/`);
     }
   }
 
-  // Return the user to an error page with instructions
+  // Code missing or exchange failed
   return NextResponse.redirect(`${origin}/auth/auth-code-error`);
 }

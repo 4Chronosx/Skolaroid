@@ -4,23 +4,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
 
-/** Routes accessible without authentication. */
-const PUBLIC_ROUTES = ['/', '/auth/callback'];
-
-/** Returns true when the pathname matches any public route. */
-function isPublicRoute(pathname: string) {
-  return PUBLIC_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(route + '/')
-  );
-}
-
 /**
- * Refreshes the Supabase session on every request and redirects
- * unauthenticated visitors to the home page (`/`).
+ * Refreshes the Supabase session and syncs cookies.
+ * Purely Supabase session management — no app logic here.
  *
  * Always create a new client per request (required for Fluid compute).
  */
-export async function updateSession(request: NextRequest) {
+export async function refreshSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
@@ -29,9 +19,6 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        // Only update the *response* cookies — never mutate the incoming
-        // request, since that can accumulate duplicate cookies and bloat
-        // headers past server limits (HTTP 431).
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(name, value, options)
@@ -40,16 +27,10 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // Do not add code between createServerClient and getClaims().
-  // Removing getClaims() may cause random logouts with SSR.
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  // Do not add code between createServerClient and getUser.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!user && !isPublicRoute(request.nextUrl.pathname)) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
-  }
-
-  return supabaseResponse;
+  return { user, supabaseResponse };
 }

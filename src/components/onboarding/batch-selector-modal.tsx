@@ -21,8 +21,8 @@ export function BatchSelectorModal({
     // Generate batches from 2000 to current year
     const currentYear = new Date().getFullYear();
     return Array.from(
-      { length: currentYear - 2000 + 1 },
-      (_, i) => 2000 + i
+      { length: currentYear - 1970 + 1 },
+      (_, i) => 1970 + i
     ).reverse();
   }, []);
 

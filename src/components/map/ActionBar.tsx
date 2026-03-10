@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { MemoryWithRelations } from '@/lib/schemas';
 import { useVoteStatus } from '@/lib/hooks/useVoteStatus';
 import { useToggleVote } from '@/lib/hooks/useToggleVote';
-import { useUserAuth } from '@/hooks/useUserAuth';
+import { useUserAuth } from '@/lib/hooks/useUserAuth';
 import { formatVoteCount } from '@/lib/utils';
 
 interface ActionBarProps {

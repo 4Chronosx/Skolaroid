@@ -12,7 +12,7 @@ import { MembersTab } from '@/components/groups/tabs/MembersTab';
 import { MediaTab } from '@/components/groups/tabs/MediaTab';
 import { AboutTab } from '@/components/groups/tabs/AboutTab';
 import { type Group, type GroupMember } from '@/lib/types/group';
-import { useUserAuth } from '@/hooks/useUserAuth';
+import { useUserAuth } from '@/lib/hooks/useUserAuth';
 import {
   type GroupResponse,
   type GroupMemberResponse,

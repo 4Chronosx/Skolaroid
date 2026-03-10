@@ -38,15 +38,20 @@ src/
 
 - Custom hooks wrap fetch calls to API routes. Example: `useMemoriesByLocation` constructs a query key and encodes parameters.
 - Forms use Zod for client validation; errors are rendered with `<FormError>` components in `components/ui`.
-- Authentication is simulated via `useUserAuth` which reads/writes `localStorage.onboarding_completed`. Real auth uses Supabase; see `src/lib/supabase/*` and `middleware.ts` proxy logic.
+- `useUserAuth` hook provides client-side auth state (`isAuthenticated`, `user`, `loading`, `logout`). Onboarding is enforced server-side via the proxy, not via localStorage.
 - `@/` TypeScript path alias points to `src/*` as configured in `tsconfig.json`.
 - When adding a new component that will run in the browser, remember to add `'use client'` at the top and import React hooks accordingly.
 
 ## 🔐 Supabase & auth
 
-- Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (client) and `DATABASE_URL`/`DIRECT_URL` (Prisma).
+- Environment variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (client), `SUPABASE_SERVICE_ROLE_KEY` (admin operations only), and `DATABASE_URL`/`DIRECT_URL` (Prisma).
 - Browser client created by `createBrowserClient` in `src/lib/supabase/client.ts`; server client in `.../server.ts` must be created per request (important for Fluid compute).
-- `src/lib/supabase/proxy.ts` is middleware used by `middleware.ts` (not shown here) that enforces login; it proxies cookies and redirects unauthenticated requests to `/auth/login`.
+- `src/lib/supabase/proxy.ts` handles **session refresh and cookie sync only**. It exports `refreshSession()` which returns the user claims and a response with synced cookies.
+- `src/proxy.ts` is the **Next.js proxy entry point** (replaces the old `middleware.ts`). It imports `refreshSession()` from `src/lib/supabase/proxy.ts` and composes it with app-level guards (authentication + onboarding enforcement).
+- Onboarding status is stored in `app_metadata.onboarded` (set via the Supabase Admin API with the service role key in the onboard API route). The proxy reads this flag to enforce onboarding.
+- After OAuth login, users are redirected to `/`. The proxy intercepts the request and redirects to `/onboarding` if the user is not yet onboarded.
+- There is no `/auth/callback` route. Redirection logic is fully handled by the proxy.
+- `user_metadata` is user-writable and used for non-sensitive profile data. `app_metadata` is server-only writable (via `SUPABASE_SERVICE_ROLE_KEY`) and used for security-critical flags like `onboarded`.
 - Do **not** mutate the response object returned from `createServerClient` without copying cookies as described in comments.
 
 ## 🔧 Development workflows

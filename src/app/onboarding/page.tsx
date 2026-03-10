@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
-import { useUserAuth } from '@/hooks/useUserAuth';
 import { useOnboardUser } from '@/lib/hooks/useOnboardUser';
+import { useUserAuth } from '@/lib/hooks/useUserAuth';
 import { Header } from '@/components/header';
 import { BatchSelectorModal } from '@/components/onboarding/batch-selector-modal';
 import { CourseSelectorModal } from '@/components/onboarding/course-selector-modal';
+import { NameInputModal } from '@/components/onboarding/name-input-modal';
+import { StudentInfoModal } from '@/components/onboarding/student-info-modal';
 
 interface OnboardingStep {
   id: string;
@@ -16,67 +18,90 @@ interface OnboardingStep {
   completed: boolean;
 }
 
+type StatusValue = 'STUDENT' | 'ALUMNI';
+
 export default function OnboardingPage() {
   const router = useRouter();
-  const { markOnboardingComplete } = useUserAuth();
   const onboardUser = useOnboardUser();
+  const { user } = useUserAuth();
 
-  const [selectedBatch, setSelectedBatch] = useState<number | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
-  const [onboardError, setOnboardError] = useState<string | null>(null);
-
-  const [steps, setSteps] = useState<OnboardingStep[]>([
-    {
-      id: 'verify',
-      title: 'Verify your identity',
-      icon: '👤',
-      completed: false,
-    },
-    { id: 'batch', title: 'Select your batch', icon: '👥', completed: false },
-    { id: 'course', title: 'Select your course', icon: '📚', completed: false },
-    {
-      id: 'memory',
-      title: 'Upload your first memory',
-      icon: '🔒',
-      completed: false,
-    },
-  ]);
-
-  const [batchModalOpen, setBatchModalOpen] = useState(false);
-  const [courseModalOpen, setCourseModalOpen] = useState(false);
-
-  const toggleStep = (stepId: string) => {
-    setSteps(
-      steps.map((step) =>
-        step.id === stepId ? { ...step, completed: !step.completed } : step
-      )
-    );
+  // Extract first name from auth user
+  const getAuthFirstName = () => {
+    if (!user) return '';
+    const fullName =
+      user.user_metadata?.full_name || user.user_metadata?.name || '';
+    return fullName.split(' ')[0] || '';
   };
 
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [lastName, setLastName] = useState<string | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<number | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [status, setStatus] = useState<StatusValue>('STUDENT');
+  const [onboardError, setOnboardError] = useState<string | null>(null);
+
+  const [nameModalOpen, setNameModalOpen] = useState(false);
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [courseModalOpen, setCourseModalOpen] = useState(false);
+  const [studentInfoModalOpen, setStudentInfoModalOpen] = useState(false);
+
+  // Compute steps with dynamic completion based on actual data
+  const steps: OnboardingStep[] = [
+    {
+      id: 'name',
+      title: 'Enter your name',
+      icon: '👤',
+      completed: firstName !== null && lastName !== null,
+    },
+    {
+      id: 'batch',
+      title: 'Select your batch',
+      icon: '👥',
+      completed: selectedBatch !== null,
+    },
+    {
+      id: 'course',
+      title: 'Select your course',
+      icon: '📚',
+      completed: selectedCourse !== null,
+    },
+    {
+      id: 'studentInfo',
+      title: 'Student ID & status',
+      icon: '🎓',
+      completed: studentId !== null,
+    },
+  ];
+
   const handleStepClick = (stepId: string) => {
-    if (stepId === 'batch') {
+    if (stepId === 'name') {
+      setNameModalOpen(true);
+    } else if (stepId === 'batch') {
       setBatchModalOpen(true);
     } else if (stepId === 'course') {
       setCourseModalOpen(true);
+    } else if (stepId === 'studentInfo') {
+      setStudentInfoModalOpen(true);
     }
+  };
+
+  const handleNameSubmit = (first: string, last: string) => {
+    setFirstName(first);
+    setLastName(last);
   };
 
   const handleBatchSelect = (batch: number) => {
     setSelectedBatch(batch);
-    setSteps(
-      steps.map((step) =>
-        step.id === 'batch' ? { ...step, completed: true } : step
-      )
-    );
   };
 
   const handleCourseSelect = (course: string) => {
     setSelectedCourse(course);
-    setSteps(
-      steps.map((step) =>
-        step.id === 'course' ? { ...step, completed: true } : step
-      )
-    );
+  };
+
+  const handleStudentInfoSubmit = (id: string, s: StatusValue) => {
+    setStudentId(id);
+    setStatus(s);
   };
 
   const completedCount = steps.filter((step) => step.completed).length;
@@ -92,7 +117,7 @@ export default function OnboardingPage() {
             <h1 className="text-3xl font-normal">
               Welcome,{' '}
               <span className="font-dancing text-4xl text-skolaroid-blue">
-                Kint
+                {getAuthFirstName()}
               </span>
             </h1>
             <p className="mt-0.5 text-xs text-gray-500">
@@ -123,17 +148,14 @@ export default function OnboardingPage() {
               <button
                 key={step.id}
                 onClick={() => handleStepClick(step.id)}
-                className="group flex w-full items-center justify-between rounded-lg border-2 border-gray-200 px-4 py-3 text-sm transition hover:border-skolaroid-blue hover:bg-blue-50"
+                className="group flex w-full items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm transition hover:border-skolaroid-blue hover:bg-blue-50"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <input
                     type="checkbox"
                     checked={step.completed}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      toggleStep(step.id);
-                    }}
-                    className="h-4 w-4 flex-shrink-0 cursor-pointer rounded border-gray-300 accent-skolaroid-blue"
+                    disabled
+                    className="h-4 w-4 flex-shrink-0 cursor-not-allowed rounded border-gray-300 bg-white"
                   />
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="flex-shrink-0 text-lg">{step.icon}</span>
@@ -174,14 +196,24 @@ export default function OnboardingPage() {
               <button
                 disabled={!allCompleted || onboardUser.isPending}
                 onClick={async () => {
-                  if (!selectedBatch || !selectedCourse) return;
+                  if (
+                    !firstName ||
+                    !lastName ||
+                    !selectedBatch ||
+                    !selectedCourse ||
+                    !studentId
+                  )
+                    return;
                   setOnboardError(null);
                   try {
                     await onboardUser.mutateAsync({
+                      firstName,
+                      lastName,
                       batchYear: selectedBatch,
                       programName: selectedCourse,
+                      studentId,
+                      status,
                     });
-                    markOnboardingComplete();
                     router.push('/');
                   } catch (err) {
                     setOnboardError(
@@ -205,6 +237,13 @@ export default function OnboardingPage() {
       </div>
 
       {/* Modals */}
+      <NameInputModal
+        open={nameModalOpen}
+        onOpenChange={setNameModalOpen}
+        onSubmit={handleNameSubmit}
+        initialFirstName={firstName ?? ''}
+        initialLastName={lastName ?? ''}
+      />
       <BatchSelectorModal
         open={batchModalOpen}
         onOpenChange={setBatchModalOpen}
@@ -214,6 +253,13 @@ export default function OnboardingPage() {
         open={courseModalOpen}
         onOpenChange={setCourseModalOpen}
         onSelect={handleCourseSelect}
+      />
+      <StudentInfoModal
+        open={studentInfoModalOpen}
+        onOpenChange={setStudentInfoModalOpen}
+        onSubmit={handleStudentInfoSubmit}
+        initialStudentId={studentId ?? ''}
+        initialStatus={status}
       />
     </div>
   );

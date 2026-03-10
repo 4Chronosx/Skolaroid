@@ -120,10 +120,44 @@ export type UpdateMemoryTagsInput = z.infer<typeof updateMemoryTagsSchema>;
 // ONBOARDING / USER CREATION SCHEMAS
 // ============================================================================
 
+export const statusEnum = z.enum(['STUDENT', 'ALUMNI'], {
+  error: 'Status must be either STUDENT or ALUMNI',
+});
+
 /** Payload sent by the onboarding page to create the User row. */
 export const onboardUserSchema = z.object({
-  batchYear: z.number().int().min(2000).max(new Date().getFullYear()),
+  firstName: z
+    .string()
+    .trim()
+    .min(1, 'First name is required')
+    .max(100, 'First name must be 100 characters or less')
+    .regex(
+      /^[a-zA-Z]+( [a-zA-Z]+)*$/,
+      'First name can only contain letters with single spaces between words'
+    ),
+  lastName: z
+    .string()
+    .trim()
+    .min(1, 'Last name is required')
+    .max(100, 'Last name must be 100 characters or less')
+    .regex(
+      /^[a-zA-Z]+( [a-zA-Z]+)*$/,
+      'Last name can only contain letters with single spaces between words'
+    ),
+  batchYear: z
+    .number({ error: 'Batch year must be a number' })
+    .int('Batch year must be a whole number')
+    .min(1900, 'Batch year must be 1900 or later')
+    .max(new Date().getFullYear(), 'Batch year cannot be in the future'),
   programName: z.string().trim().min(1, 'Program is required'),
+  studentId: z
+    .string()
+    .trim()
+    .regex(
+      /^\d{4}-\d{5}$/,
+      'Student ID must follow the format YYYY-NNNNN (e.g. 2023-00981)'
+    ),
+  status: statusEnum,
 });
 
 export type OnboardUserInput = z.infer<typeof onboardUserSchema>;

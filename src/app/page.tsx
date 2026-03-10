@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { BatchCard } from '@/components/batch-card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { LoginForm } from '@/components/login-form';
-import { useUserAuth } from '@/hooks/useUserAuth';
+import { useUserAuth } from '@/lib/hooks/useUserAuth';
 import { AccountMenu } from '@/components/account-menu';
 
 const batches = [
@@ -109,7 +109,7 @@ export default function Home() {
               onClick={() => setLoginOpen(true)}
               className="rounded-md bg-skolaroid-blue px-4 py-2 text-xs text-white transition hover:bg-blue-700"
             >
-              Log In
+              Sign in
             </button>
           </>
         )}
