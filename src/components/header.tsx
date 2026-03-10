@@ -37,7 +37,7 @@ export function Header() {
               asChild
               className="bg-skolaroid-blue text-xs hover:bg-skolaroid-blue/90"
             >
-              <Link href="/">Log In</Link>
+              <Link href="/">Sign in</Link>
             </Button>
           )}
         </div>
