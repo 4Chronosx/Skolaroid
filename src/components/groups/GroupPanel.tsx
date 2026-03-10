@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { GroupSwitcher, useGroupToast } from '@/components/groups';
 import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
@@ -11,9 +11,16 @@ import { DeleteGroupModal } from '@/components/groups/DeleteGroupModal';
 import { MembersTab } from '@/components/groups/tabs/MembersTab';
 import { MediaTab } from '@/components/groups/tabs/MediaTab';
 import { AboutTab } from '@/components/groups/tabs/AboutTab';
-import { type Group, MOCK_GROUPS } from '@/lib/types/group';
+import { type Group, type GroupMember } from '@/lib/types/group';
 import { useUserAuth } from '@/hooks/useUserAuth';
-import { type GroupResponse } from '@/lib/hooks/useCreateGroup';
+import {
+  type GroupResponse,
+  type GroupMemberResponse,
+} from '@/lib/hooks/useCreateGroup';
+import { useUserGroups } from '@/lib/hooks/useUserGroups';
+import { useGroupById } from '@/lib/hooks/useGroupById';
+import { useDeleteGroup } from '@/lib/hooks/useDeleteGroup';
+import { useRemoveGroupMember } from '@/lib/hooks/useGroupMembers';
 import { cn } from '@/lib/utils';
 import {
   X,
@@ -27,6 +34,7 @@ import {
   LogOut,
   Globe,
   Lock,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -45,11 +53,39 @@ interface GroupPanelProps {
 
 type TabType = 'members' | 'media' | 'about';
 
+/** Transform an API member response to the frontend GroupMember shape. */
+function toGroupMember(
+  m: GroupMemberResponse,
+  creatorId: string | null
+): GroupMember {
+  return {
+    id: m.id,
+    name: `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email,
+    email: m.email,
+    role: m.id === creatorId ? ('OWNER' as const) : ('MEMBER' as const),
+    joinedAt: new Date().toISOString(),
+  };
+}
+
+/** Transform an API GroupResponse to the frontend Group shape. */
+function toGroup(g: GroupResponse): Group {
+  return {
+    id: g.id,
+    name: g.name,
+    description: g.description ?? undefined,
+    privacy: 'PRIVATE',
+    visibility: 'VISIBLE',
+    coverPhotoUrl: undefined,
+    memberCount: g._count.members,
+    postCount: g._count.memories,
+    ownerId: g.creatorId ?? '',
+    members: g.members.map((m) => toGroupMember(m, g.creatorId)),
+    createdAt: g.createdAt,
+  };
+}
+
 export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
-  const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(
-    MOCK_GROUPS[0] ?? null
-  );
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -57,65 +93,106 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('members');
 
-  const { showSuccess } = useGroupToast();
+  const { showSuccess, showError } = useGroupToast();
   const { user } = useUserAuth();
   const currentUserId = user?.id ?? '';
 
-  const handleGroupCreated = useCallback(
-    (groupResponse: GroupResponse) => {
-      // Transform API GroupResponse to frontend Group type
-      const newGroup: Group = {
-        id: groupResponse.id,
-        name: groupResponse.name,
-        description: groupResponse.description ?? undefined,
-        privacy: 'PUBLIC', // Default to PUBLIC - adjust based on form if available
-        visibility: 'VISIBLE', // Default to VISIBLE - adjust based on form if available
-        coverPhotoUrl: undefined,
-        memberCount: groupResponse._count.members,
-        postCount: 0, // API doesn't return media count yet
-        ownerId: groupResponse.creatorId ?? '',
-        members: groupResponse.members.map((member) => ({
-          id: member.id,
-          name:
-            `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() ||
-            member.email,
-          role:
-            member.id === groupResponse.creatorId
-              ? ('OWNER' as const)
-              : ('MEMBER' as const),
-          joinedAt: new Date().toISOString(),
-        })),
-        createdAt: groupResponse.createdAt,
-      };
-      setGroups((prev) => [newGroup, ...prev]);
-      setSelectedGroup(newGroup);
-      showSuccess(`Group "${newGroup.name}" created successfully!`);
-    },
-    [showSuccess]
+  // ─── Data fetching ───────────────────────────────────────────────
+  const { data: groupsRaw, isLoading: isLoadingGroups } = useUserGroups();
+
+  const { data: groupDetailRaw, refetch: refetchGroupDetail } = useGroupById(
+    selectedGroupId ?? ''
   );
 
-  const handleGroupDeleted = useCallback(
-    (groupId: string) => {
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-      setSelectedGroup(groups.find((g) => g.id !== groupId) ?? null);
-      onOpenChange(false);
-    },
-    [groups, onOpenChange]
-  );
+  const deleteGroup = useDeleteGroup();
+  const leaveGroup = useRemoveGroupMember();
 
-  const handleGroupLeft = useCallback(
-    (groupId: string) => {
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-      setSelectedGroup(groups.find((g) => g.id !== groupId) ?? null);
-    },
-    [groups]
-  );
+  // ─── Derived state ───────────────────────────────────────────────
+  const groups: Group[] = useMemo(() => {
+    if (!groupsRaw) return [];
+    return groupsRaw.map(toGroup);
+  }, [groupsRaw]);
+
+  // Auto-select first group when list loads
+  useEffect(() => {
+    if (groups.length > 0 && !selectedGroupId) {
+      setSelectedGroupId(groups[0].id);
+    }
+  }, [groups, selectedGroupId]);
+
+  // Build the selected group from either the detail query or the list
+  const selectedGroup: Group | null = useMemo(() => {
+    if (groupDetailRaw)
+      return toGroup(groupDetailRaw as unknown as GroupResponse);
+    return groups.find((g) => g.id === selectedGroupId) ?? null;
+  }, [groupDetailRaw, groups, selectedGroupId]);
 
   const isOwner = selectedGroup?.ownerId === currentUserId;
   const currentUserMember = selectedGroup?.members.find(
     (m) => m.id === currentUserId
   );
   const isAdmin = currentUserMember?.role === 'ADMIN';
+
+  // ─── Handlers ────────────────────────────────────────────────────
+  const handleSelectGroup = useCallback((group: Group) => {
+    setSelectedGroupId(group.id);
+  }, []);
+
+  const handleGroupCreated = useCallback(
+    (groupResponse: GroupResponse) => {
+      setSelectedGroupId(groupResponse.id);
+      showSuccess(`Group "${groupResponse.name}" created successfully!`);
+    },
+    [showSuccess]
+  );
+
+  const handleGroupDeleted = useCallback(() => {
+    if (!selectedGroup) return;
+
+    deleteGroup.mutate(selectedGroup.id, {
+      onSuccess: () => {
+        showSuccess(`Group "${selectedGroup.name}" deleted.`);
+        setSelectedGroupId(
+          groups.find((g) => g.id !== selectedGroup.id)?.id ?? null
+        );
+        onOpenChange(false);
+      },
+      onError: (err) => {
+        showError(err.message);
+      },
+    });
+  }, [
+    selectedGroup,
+    groups,
+    deleteGroup,
+    onOpenChange,
+    showSuccess,
+    showError,
+  ]);
+
+  const handleGroupLeft = useCallback(() => {
+    if (!selectedGroup || !user?.email) return;
+
+    leaveGroup.mutate(
+      { groupId: selectedGroup.id, email: user.email },
+      {
+        onSuccess: () => {
+          showSuccess(`You left "${selectedGroup.name}".`);
+          setSelectedGroupId(
+            groups.find((g) => g.id !== selectedGroup.id)?.id ?? null
+          );
+        },
+        onError: (err) => {
+          showError(err.message);
+        },
+      }
+    );
+  }, [selectedGroup, user?.email, groups, leaveGroup, showSuccess, showError]);
+
+  const handleMemberRemoved = useCallback(() => {
+    refetchGroupDetail();
+    showSuccess('Member removed successfully.');
+  }, [refetchGroupDetail, showSuccess]);
 
   return (
     <>
@@ -140,7 +217,7 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
               <GroupSwitcher
                 groups={groups}
                 selectedGroup={selectedGroup}
-                onSelectGroup={setSelectedGroup}
+                onSelectGroup={handleSelectGroup}
                 onCreateGroup={() => setCreateModalOpen(true)}
               />
             </div>
@@ -297,6 +374,8 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
                       members={selectedGroup.members}
                       isOwner={isOwner}
                       currentUserId={currentUserId}
+                      groupId={selectedGroup.id}
+                      onMemberRemoved={handleMemberRemoved}
                     />
                   )}
                   {activeTab === 'media' && <MediaTab />}
@@ -305,13 +384,19 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
               </>
             ) : (
               <div className="flex h-full flex-col items-center justify-center px-5 py-8">
-                <Users className="mb-3 h-12 w-12 text-gray-300" />
-                <h3 className="text-base font-semibold text-gray-900">
-                  No Group Selected
-                </h3>
-                <p className="mt-1 text-center text-sm text-gray-600">
-                  Select a group from the sidebar or create a new one
-                </p>
+                {isLoadingGroups ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
+                ) : (
+                  <>
+                    <Users className="mb-3 h-12 w-12 text-gray-300" />
+                    <h3 className="text-base font-semibold text-gray-900">
+                      No Group Selected
+                    </h3>
+                    <p className="mt-1 text-center text-sm text-gray-600">
+                      Select a group from the sidebar or create a new one
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -347,14 +432,14 @@ export function GroupPanel({ open, onOpenChange }: GroupPanelProps) {
             open={leaveModalOpen}
             onOpenChange={setLeaveModalOpen}
             groupName={selectedGroup.name}
-            onConfirmLeave={() => handleGroupLeft(selectedGroup.id)}
+            onConfirmLeave={handleGroupLeft}
           />
 
           <DeleteGroupModal
             open={deleteModalOpen}
             onOpenChange={setDeleteModalOpen}
             groupName={selectedGroup.name}
-            onConfirmDelete={() => handleGroupDeleted(selectedGroup.id)}
+            onConfirmDelete={handleGroupDeleted}
           />
         </>
       )}
