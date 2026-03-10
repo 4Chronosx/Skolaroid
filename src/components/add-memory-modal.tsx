@@ -4,8 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useCreateMemory } from '@/lib/hooks/useCreateMemory';
+import { useCreateCustomLocation } from '@/lib/hooks/useCreateCustomLocation';
 import { useLocations } from '@/lib/hooks/useLocations';
 import { VISIBILITY_LABELS, type MemoryVisibility } from '@/lib/schemas';
+import { LANDMARKS, type Landmark } from '@/lib/constants/landmarks';
+import {
+  LANDMARK_TYPE_COLORS,
+  LANDMARK_TYPE_LABELS,
+} from '@/lib/constants/landmarks';
+import type { MapLocationSelection } from '@/lib/types/map';
 import {
   ArrowUpDown,
   CheckCircle,
@@ -21,8 +28,11 @@ import {
   List,
   Loader2,
   Lock,
+  MapPin,
+  MapPinned,
   Trash2,
   Pencil,
+  Search,
   Share,
   Shield,
   Type,
@@ -37,7 +47,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 // TYPES
 // =============================================================================
 
-type Tab = 'upload' | 'caption' | 'privacy';
+type Tab = 'upload' | 'location' | 'caption' | 'privacy';
 
 type ViewMode = 'grid' | 'list';
 
@@ -61,16 +71,22 @@ interface AddMemoryModalProps {
   onOpenChange: (open: boolean) => void;
   /** Optional era (decade start year) for context display, e.g. 2020. */
   defaultEra?: number | null;
+  /** Callback to request map selection mode from the parent map component. */
+  onRequestMapSelection?: (
+    mode: 'landmark' | 'custom',
+    onSelect: (selection: MapLocationSelection) => void
+  ) => void;
 }
 
 // =============================================================================
 // CONSTANTS
 // =============================================================================
 
-const TABS: Tab[] = ['upload', 'caption', 'privacy'];
+const TABS: Tab[] = ['upload', 'location', 'caption', 'privacy'];
 
 const TAB_META: Record<Tab, { label: string; icon: typeof Upload }> = {
   upload: { label: 'Upload media', icon: Upload },
+  location: { label: 'Location', icon: MapPin },
   caption: { label: 'Add caption', icon: Type },
   privacy: { label: 'Privacy', icon: Shield },
 };
@@ -174,6 +190,7 @@ export function AddMemoryModal({
   onOpenChange,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   defaultEra,
+  onRequestMapSelection,
 }: AddMemoryModalProps) {
   // ---------------------------------------------------------------------------
   // State
@@ -198,6 +215,16 @@ export function AddMemoryModal({
     }
   );
 
+  // Location selection state
+  const [selectedLocationName, setSelectedLocationName] = useState<
+    string | null
+  >(null);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
+    null
+  );
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isCreatingLocation, setIsCreatingLocation] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const captionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -207,6 +234,8 @@ export function AddMemoryModal({
     () => locationsData?.data ?? [],
     [locationsData?.data]
   );
+
+  const { mutateAsync: createCustomLocation } = useCreateCustomLocation();
 
   // ---------------------------------------------------------------------------
   // Computed
@@ -233,6 +262,12 @@ export function AddMemoryModal({
       VISIBILITY_OPTIONS[0],
     [visibility]
   );
+
+  const filteredLandmarks = useMemo(() => {
+    if (!searchQuery.trim()) return LANDMARKS;
+    const query = searchQuery.toLowerCase();
+    return LANDMARKS.filter((l) => l.name.toLowerCase().includes(query));
+  }, [searchQuery]);
 
   // ---------------------------------------------------------------------------
   // Cleanup Object URLs on unmount
@@ -271,6 +306,10 @@ export function AddMemoryModal({
       shareToFeed: true,
       enableComments: true,
     });
+    setSelectedLocationName(null);
+    setSelectedLocationId(null);
+    setSearchQuery('');
+    setIsCreatingLocation(false);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -434,17 +473,22 @@ export function AddMemoryModal({
     // TODO: re-enable upload check once backend is wired up
     // if (activeTab === 'upload' && !hasCompletedUploads) return;
 
+    // Require location selection before advancing past Location tab
+    if (activeTab === 'location' && !selectedLocationId) return;
+
     const nextIndex = activeTabIndex + 1;
     if (nextIndex < TABS.length) {
       const nextTab = TABS[nextIndex];
       setActiveTab(nextTab);
       setHighestReachedTab((prev) => Math.max(prev, nextIndex));
     }
-  }, [activeTabIndex]);
+  }, [activeTab, activeTabIndex, selectedLocationId]);
 
   const handleBack = useCallback(() => {
-    if (activeTabIndex > 0) {
-      setActiveTab(TABS[activeTabIndex - 1]);
+    const prevIndex = activeTabIndex - 1;
+    if (prevIndex >= 0) {
+      const prevTab = TABS[prevIndex];
+      setActiveTab(prevTab);
     }
   }, [activeTabIndex]);
 
@@ -478,7 +522,7 @@ export function AddMemoryModal({
       return;
     }
 
-    const locationId = locations[0]?.id ?? '';
+    const locationId = selectedLocationId ?? locations[0]?.id ?? '';
 
     createMemory(
       {
@@ -509,10 +553,197 @@ export function AddMemoryModal({
     caption,
     visibility,
     locations,
+    selectedLocationId,
     createMemory,
     resetState,
     onOpenChange,
   ]);
+
+  // ---------------------------------------------------------------------------
+  // Tab: Location
+  // ---------------------------------------------------------------------------
+
+  const renderLocationTab = () => (
+    <div className="flex h-full flex-col gap-4">
+      {/* Selected location badge */}
+      {selectedLocationName && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <MapPin className="h-4 w-4 text-emerald-600" />
+          <span className="flex-1 text-sm font-medium text-emerald-800">
+            {selectedLocationName}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedLocationName(null);
+              setSelectedLocationId(null);
+            }}
+            className="rounded-full p-0.5 text-emerald-500 hover:bg-emerald-100 hover:text-emerald-700"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Creating location loading state */}
+      {isCreatingLocation && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+          <span className="text-sm text-blue-700">Creating location...</span>
+        </div>
+      )}
+
+      {/* Action cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => handleSelectOnMap('landmark')}
+          className="flex flex-col items-center gap-2 rounded-xl border-2 border-skolaroid-blue bg-blue-50/50 px-4 py-5 transition-colors hover:bg-blue-50"
+        >
+          <MapPin className="h-6 w-6 text-skolaroid-blue" />
+          <span className="text-sm font-semibold text-skolaroid-blue">
+            Select Landmark on Map
+          </span>
+          <span className="text-xs text-blue-400">
+            Click a landmark directly
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSelectOnMap('custom')}
+          className="flex flex-col items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50/50 px-4 py-5 transition-colors hover:border-gray-300 hover:bg-gray-100"
+        >
+          <MapPinned className="h-6 w-6 text-gray-500" />
+          <span className="text-sm font-semibold text-gray-700">
+            Pinpoint Custom Location
+          </span>
+          <span className="text-xs text-gray-400">
+            Click anywhere on campus
+          </span>
+        </button>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search landmarks..."
+          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-8 text-sm text-gray-700 placeholder:text-gray-400 focus:border-skolaroid-blue focus:outline-none focus:ring-1 focus:ring-skolaroid-blue"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Landmark list */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-gray-500">
+            {searchQuery
+              ? `${filteredLandmarks.length} landmark${filteredLandmarks.length !== 1 ? 's' : ''} found`
+              : 'Or select from list'}
+          </p>
+        </div>
+        <div className="-mr-2 max-h-44 overflow-y-auto pr-2">
+          {filteredLandmarks.length === 0 ? (
+            <p className="py-4 text-center text-sm text-gray-400">
+              No landmarks found
+            </p>
+          ) : (
+            filteredLandmarks.map((landmark) => {
+              const isSelected = selectedLocationName === landmark.name;
+              return (
+                <button
+                  key={landmark.id}
+                  type="button"
+                  onClick={() => handleSelectLandmarkFromList(landmark)}
+                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                    isSelected
+                      ? 'bg-emerald-50 text-emerald-800'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${LANDMARK_TYPE_COLORS[landmark.type]}`}
+                  />
+                  <span className="flex-1 truncate">{landmark.name}</span>
+                  <span className="text-xs text-gray-400">
+                    {LANDMARK_TYPE_LABELS[landmark.type]}
+                  </span>
+                  {isSelected && (
+                    <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ---------------------------------------------------------------------------
+  // Map location selection handlers
+  // ---------------------------------------------------------------------------
+
+  const handleMapSelection = useCallback(
+    async (selection: MapLocationSelection) => {
+      if (selection.mode === 'landmark' && selection.landmark) {
+        setSelectedLocationName(selection.landmark.name);
+        setSelectedLocationId(selection.locationId ?? selection.landmark.id);
+      } else if (selection.mode === 'custom' && selection.customLocation) {
+        setIsCreatingLocation(true);
+        try {
+          const result = await createCustomLocation({
+            buildingName: selection.customLocation.buildingName,
+            latitude: selection.customLocation.latitude,
+            longitude: selection.customLocation.longitude,
+          });
+          setSelectedLocationName(selection.customLocation.buildingName);
+          setSelectedLocationId(result.data.id);
+        } catch (err) {
+          setSubmitError(
+            err instanceof Error
+              ? err.message
+              : 'Failed to create custom location'
+          );
+        } finally {
+          setIsCreatingLocation(false);
+        }
+      }
+    },
+    [createCustomLocation]
+  );
+
+  const handleSelectOnMap = useCallback(
+    (mode: 'landmark' | 'custom') => {
+      onRequestMapSelection?.(mode, handleMapSelection);
+    },
+    [onRequestMapSelection, handleMapSelection]
+  );
+
+  const handleSelectLandmarkFromList = useCallback(
+    (landmark: Landmark) => {
+      // Find the matching DB location by building name, or fall back to the landmark constant ID
+      const dbLocation = locations.find(
+        (loc) => loc.buildingName.toLowerCase() === landmark.name.toLowerCase()
+      );
+      setSelectedLocationName(landmark.name);
+      setSelectedLocationId(dbLocation?.id ?? landmark.id);
+      setSearchQuery('');
+    },
+    [locations]
+  );
 
   // ---------------------------------------------------------------------------
   // Placeholder handlers
@@ -993,6 +1224,7 @@ export function AddMemoryModal({
 
   const TAB_RENDERERS: Record<Tab, () => React.ReactNode> = {
     upload: renderUploadTab,
+    location: renderLocationTab,
     caption: renderCaptionTab,
     privacy: renderPrivacyTab,
   };
@@ -1133,6 +1365,32 @@ export function AddMemoryModal({
                     className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90"
                   >
                     Next
+                  </Button>
+                </>
+              )}
+
+              {activeTab === 'location' && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="text-gray-700"
+                    onClick={handleBack}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={handleNext}
+                    disabled={!selectedLocationId || isCreatingLocation}
+                    className="bg-skolaroid-blue text-white hover:bg-skolaroid-blue/90 disabled:opacity-50"
+                  >
+                    {isCreatingLocation ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Creating location...
+                      </>
+                    ) : (
+                      'Next'
+                    )}
                   </Button>
                 </>
               )}
