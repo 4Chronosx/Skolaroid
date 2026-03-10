@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ClientNav } from './client-nav';
-import { useUserAuth } from '@/hooks/useUserAuth';
+import { useUserAuth } from '@/lib/hooks/useUserAuth';
 import { AccountMenu } from './account-menu';
 import { NotificationsMenu } from './notifications-menu';
 import { Button } from '@/components/ui/button';

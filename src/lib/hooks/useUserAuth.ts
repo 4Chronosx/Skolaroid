@@ -27,16 +27,11 @@ export function useUserAuth() {
     return () => subscription.unsubscribe();
   }, [supabase.auth]);
 
-  const markOnboardingComplete = () => {
-    localStorage.setItem('onboarding_completed', 'true');
-  };
-
   const logout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('onboarding_completed');
     setIsAuthenticated(false);
     setUser(null);
   };
 
-  return { isAuthenticated, loading, user, markOnboardingComplete, logout };
+  return { isAuthenticated, loading, user, logout };
 }

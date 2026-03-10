@@ -6,10 +6,9 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * POST /api/prisma/user/create
  *
- * Called after onboarding. The client sends batchYear + programName.
- * Auth provides email + uuid. Fields not available during onboarding
- * (studentId, firstName, lastName) are filled with placeholders.
- * status and role use their DB defaults (STUDENT / USER).
+ * Called after onboarding. The client sends firstName, lastName,
+ * batchYear, programName, studentId, and status.
+ * Auth provides email + uuid. role defaults to USER via Prisma schema.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +33,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { batchYear, programName } = parsed.data;
+    const { firstName, lastName, batchYear, programName, studentId, status } =
+      parsed.data;
     const email = authUser.email ?? '';
 
     // ── 3. Resolve Program & Batch ─────────────────────────────────────
@@ -85,18 +85,38 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 5. Create User ────────────────────────────────────────────────
-    // studentId, firstName, lastName are placeholders — user can update later.
-    // status defaults to STUDENT, role defaults to USER via Prisma schema.
     const user = await prisma.user.create({
       data: {
         id: authUser.id,
         email,
-        studentId: `PENDING-${authUser.id}`,
-        firstName: 'New',
-        lastName: 'User',
+        firstName,
+        lastName,
+        studentId,
+        status,
         programBatch: { connect: { id: programBatch.id } },
       },
     });
+
+    // ── 6. Mark user as onboarded in Supabase app_metadata ──────────
+    const { createClient: createAdminClient } =
+      await import('@supabase/supabase-js');
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(
+      authUser.id,
+      {
+        app_metadata: { onboarded: true },
+      }
+    );
+
+    if (metaError) {
+      console.error(
+        '[user/create] Failed to update app_metadata:',
+        metaError.message
+      );
+    }
 
     return NextResponse.json({
       success: true,

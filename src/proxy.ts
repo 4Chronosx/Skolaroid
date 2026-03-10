@@ -1,9 +1,60 @@
-import { updateSession } from '@/lib/supabase/proxy';
-import { type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { refreshSession } from '@/lib/supabase/proxy';
 
+/** Routes accessible without authentication. */
+const PUBLIC_ROUTES = ['/', '/auth/callback', '/auth/auth-code-error'];
+
+/** Routes accessible to authenticated-but-not-onboarded users. */
+const ONBOARDING_ROUTES = ['/onboarding', '/api/prisma/user/create'];
+
+function matchesRoute(pathname: string, routes: string[]) {
+  return routes.some(
+    (route) => pathname === route || pathname.startsWith(route + '/')
+  );
+}
+
+/**
+ * Next.js proxy handler (replaces the old middleware.ts).
+ * 1. Refreshes Supabase session (cookie sync).
+ * 2. Enforces authentication and onboarding guards.
+ *
+ * Flow:
+ * - Not authenticated → only allow public routes, redirect to `/` otherwise.
+ * - Authenticated but not onboarded → force to `/onboarding`.
+ * - Authenticated and onboarded → allow all routes, block `/onboarding`.
+ */
 export async function proxy(request: NextRequest) {
-  console.log('proxy running on:', request.nextUrl.pathname);
-  return await updateSession(request);
+  // Step 1: Refresh session and sync cookies
+  const { user, supabaseResponse } = await refreshSession(request);
+
+  const pathname = request.nextUrl.pathname;
+
+  // Step 2: Not authenticated → only allow public routes
+  if (!user && !matchesRoute(pathname, PUBLIC_ROUTES)) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    return NextResponse.redirect(url);
+  }
+
+  if (user) {
+    const isOnboarded = user.app_metadata?.onboarded === true;
+    // Step 3: Authenticated but NOT onboarded → force to /onboarding
+    if (!isOnboarded && !matchesRoute(pathname, ONBOARDING_ROUTES)) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/onboarding';
+      return NextResponse.redirect(url);
+    }
+
+    // Step 4: Authenticated AND onboarded → block /onboarding
+    if (isOnboarded && matchesRoute(pathname, ONBOARDING_ROUTES)) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/';
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Step 5: No redirect needed, continue with updated cookies
+  return supabaseResponse;
 }
 
 export const config = {
