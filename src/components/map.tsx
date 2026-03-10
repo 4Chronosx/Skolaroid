@@ -742,11 +742,6 @@ export function MapComponent() {
         onPrimaryClick={() => setGroupModalOpen(true)}
         onBatchesClick={() => setBatchesModalOpen(true)}
         onConfigureClick={() => router.push('/admin')}
-        showLandmarks={showLandmarks}
-        onToggleLandmarks={(show) => {
-          setShowLandmarks(show);
-          setShowMemoryPins(!show);
-        }}
       />
 
       {/* Group Panel */}
