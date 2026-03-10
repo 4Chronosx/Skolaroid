@@ -14,6 +14,7 @@ export type GroupMemberRole = 'OWNER' | 'ADMIN' | 'MEMBER';
 export interface GroupMember {
   id: string;
   name: string;
+  email: string;
   avatarUrl?: string | null;
   role: GroupMemberRole;
   joinedAt: string; // ISO date string
@@ -86,6 +87,7 @@ export const MOCK_GROUPS: Group[] = [
       {
         id: 'user-001',
         name: 'You (Owner)',
+        email: 'you@example.com',
         avatarUrl: null,
         role: 'OWNER',
         joinedAt: '2024-01-15T08:00:00.000Z',
@@ -93,6 +95,7 @@ export const MOCK_GROUPS: Group[] = [
       {
         id: 'user-002',
         name: 'Maria Santos',
+        email: 'maria.santos@example.com',
         avatarUrl: null,
         role: 'ADMIN',
         joinedAt: '2024-01-16T09:00:00.000Z',
@@ -100,6 +103,7 @@ export const MOCK_GROUPS: Group[] = [
       {
         id: 'user-003',
         name: 'Juan dela Cruz',
+        email: 'juan.delacruz@example.com',
         avatarUrl: null,
         role: 'MEMBER',
         joinedAt: '2024-01-17T10:00:00.000Z',
@@ -107,6 +111,7 @@ export const MOCK_GROUPS: Group[] = [
       {
         id: 'user-004',
         name: 'Ana Reyes',
+        email: 'ana.reyes@example.com',
         avatarUrl: null,
         role: 'MEMBER',
         joinedAt: '2024-01-18T11:00:00.000Z',
@@ -114,6 +119,7 @@ export const MOCK_GROUPS: Group[] = [
       {
         id: 'user-005',
         name: 'Carlos Mendoza',
+        email: 'carlos.mendoza@example.com',
         avatarUrl: null,
         role: 'MEMBER',
         joinedAt: '2024-01-19T12:00:00.000Z',
@@ -135,6 +141,7 @@ export const MOCK_GROUPS: Group[] = [
       {
         id: 'user-002',
         name: 'Maria Santos',
+        email: 'maria.santos@example.com',
         avatarUrl: null,
         role: 'OWNER',
         joinedAt: '2024-02-01T08:00:00.000Z',
@@ -142,6 +149,7 @@ export const MOCK_GROUPS: Group[] = [
       {
         id: 'user-001',
         name: 'You',
+        email: 'you@example.com',
         avatarUrl: null,
         role: 'MEMBER',
         joinedAt: '2024-02-05T09:00:00.000Z',
@@ -149,6 +157,7 @@ export const MOCK_GROUPS: Group[] = [
       {
         id: 'user-006',
         name: 'Pedro Ramos',
+        email: 'pedro.ramos@example.com',
         avatarUrl: null,
         role: 'MEMBER',
         joinedAt: '2024-02-06T10:00:00.000Z',
