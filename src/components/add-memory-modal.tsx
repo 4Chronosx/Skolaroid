@@ -1267,7 +1267,7 @@ export function AddMemoryModal({
         }}
       >
         <DialogContent
-          className="flex h-[540px] max-w-2xl gap-0 overflow-hidden p-0"
+          className="flex h-[85vh] w-[70vw] max-w-none gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-none"
           showCloseButton={false}
         >
           {/* Success toast overlay */}
