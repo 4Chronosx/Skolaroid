@@ -1,6 +1,6 @@
 'use client';
 
-import { useUserAuth } from '@/hooks/useUserAuth';
+import { useUserAuth } from '@/lib/hooks/useUserAuth';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileBioCard } from '@/components/profile/ProfileBioCard';
 import { ProfileContactCard } from '@/components/profile/ProfileContactCard';
