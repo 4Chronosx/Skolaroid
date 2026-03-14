@@ -1,3 +1,4 @@
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
 import { onboardUserSchema } from '@/lib/schemas';
 import { createClient } from '@/lib/supabase/server';
@@ -98,11 +99,10 @@ export async function POST(request: NextRequest) {
     });
 
     // ── 6. Mark user as onboarded in Supabase app_metadata ──────────
-    const { createClient: createAdminClient } =
-      await import('@supabase/supabase-js');
     const supabaseAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
     const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(
       authUser.id,
