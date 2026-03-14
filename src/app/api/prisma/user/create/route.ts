@@ -116,6 +116,14 @@ export async function POST(request: NextRequest) {
         '[user/create] Failed to update app_metadata:',
         metaError.message
       );
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'User created but failed to complete onboarding setup',
+          detail: metaError.message,
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
