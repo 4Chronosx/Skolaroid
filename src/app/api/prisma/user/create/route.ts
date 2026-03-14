@@ -4,6 +4,19 @@ import { onboardUserSchema } from '@/lib/schemas';
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
+/** Set app_metadata.onboarded = true via the Supabase Admin API. */
+async function markAsOnboarded(userId: string) {
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    app_metadata: { onboarded: true },
+  });
+  return { error };
+}
+
 /**
  * POST /api/prisma/user/create
  *
@@ -99,18 +112,7 @@ export async function POST(request: NextRequest) {
     });
 
     // ── 6. Mark user as onboarded in Supabase app_metadata ──────────
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(
-      authUser.id,
-      {
-        app_metadata: { onboarded: true },
-      }
-    );
-
+    const { error: metaError } = await markAsOnboarded(authUser.id);
     if (metaError) {
       console.error(
         '[user/create] Failed to update app_metadata:',
