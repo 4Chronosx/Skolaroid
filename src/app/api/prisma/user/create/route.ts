@@ -92,8 +92,36 @@ export async function POST(request: NextRequest) {
       where: { id: authUser.id },
     });
     if (existingUser) {
+      if (authUser.app_metadata?.onboarded === true) {
+        return NextResponse.json(
+          { success: true, message: 'User already exists', user: existingUser },
+          { status: 200 }
+        );
+      }
+
+      // User exists in DB but app_metadata.onboarded not set — retry
+      const { error: metaError } = await markAsOnboarded(authUser.id);
+      if (metaError) {
+        console.error(
+          '[user/create] Failed to update app_metadata (retry):',
+          metaError.message
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'User exists but failed to complete onboarding setup',
+            detail: metaError.message,
+          },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json(
-        { success: true, message: 'User already exists', user: existingUser },
+        {
+          success: true,
+          message: 'User already exists, onboarding completed',
+          user: existingUser,
+        },
         { status: 200 }
       );
     }
