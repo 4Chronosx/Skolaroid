@@ -17,6 +17,7 @@ export async function GET() {
             longitude: true,
           },
         },
+        creator: { select: { firstName: true, lastName: true } },
         _count: { select: { votes: true } },
       },
       orderBy: { createdAt: 'desc' },

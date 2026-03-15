@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       include: {
         tags: true,
         location: { select: { id: true, buildingName: true } },
+        creator: { select: { firstName: true, lastName: true } },
         _count: { select: { votes: true } },
       },
       orderBy: { createdAt: 'desc' },

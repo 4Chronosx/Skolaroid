@@ -176,6 +176,7 @@ export interface MemoryWithRelations {
   createdAt?: string;
   tags?: { id: string; name: string }[];
   location?: { buildingName: string };
+  creator?: { firstName: string; lastName: string } | null;
   _count?: { votes: number };
 }
 
