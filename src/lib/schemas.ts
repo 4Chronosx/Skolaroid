@@ -108,6 +108,41 @@ export type ToggleVoteInput = z.infer<typeof toggleVoteSchema>;
 export type VoteStatusQuery = z.infer<typeof voteStatusQuerySchema>;
 
 // ============================================================================
+// COMMENT SCHEMAS
+// ============================================================================
+
+export const MAX_COMMENT_LENGTH = 2000;
+
+/** Payload for creating a comment — authorId comes from server-side auth. */
+export const createCommentSchema = z.object({
+  memoryId: z.string().uuid('Invalid memory ID'),
+  content: z
+    .string()
+    .trim()
+    .min(1, 'Comment cannot be empty')
+    .max(
+      MAX_COMMENT_LENGTH,
+      `Comment must be ${MAX_COMMENT_LENGTH} characters or less`
+    ),
+});
+
+/** Query params for fetching comments on a memory (cursor-based pagination). */
+export const getCommentsQuerySchema = z.object({
+  memoryId: z.string().uuid('Invalid memory ID'),
+  cursor: z.string().uuid('Invalid cursor').optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
+/** Payload for deleting a comment — checked against authorId server-side. */
+export const deleteCommentSchema = z.object({
+  commentId: z.string().uuid('Invalid comment ID'),
+});
+
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+export type GetCommentsQuery = z.infer<typeof getCommentsQuerySchema>;
+export type DeleteCommentInput = z.infer<typeof deleteCommentSchema>;
+
+// ============================================================================
 // MEMORY TYPE EXPORTS
 // ============================================================================
 
@@ -176,7 +211,8 @@ export interface MemoryWithRelations {
   createdAt?: string;
   tags?: { id: string; name: string }[];
   location?: { buildingName: string };
-  _count?: { votes: number };
+  creator?: { firstName: string; lastName: string } | null;
+  _count?: { votes: number; comments: number };
 }
 
 /** Visibility label mapping for display. */

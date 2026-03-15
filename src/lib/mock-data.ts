@@ -82,7 +82,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2024',
       },
     ],
-    _count: { votes: 12 },
+    _count: { votes: 12, comments: 0 },
   },
   {
     id: '10000000-0000-0000-0000-000000000002',
@@ -115,7 +115,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2024',
       },
     ],
-    _count: { votes: 24 },
+    _count: { votes: 24, comments: 0 },
   },
   {
     id: '10000000-0000-0000-0000-000000000003',
@@ -142,7 +142,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2025',
       },
     ],
-    _count: { votes: 3 },
+    _count: { votes: 3, comments: 0 },
   },
 
   // --- UP Main Library (2 memories) ---
@@ -182,7 +182,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2024',
       },
     ],
-    _count: { votes: 8 },
+    _count: { votes: 8, comments: 0 },
   },
   {
     id: '10000000-0000-0000-0000-000000000005',
@@ -214,7 +214,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2024',
       },
     ],
-    _count: { votes: 6 },
+    _count: { votes: 6, comments: 0 },
   },
 
   // --- AS Steps (2 memories) ---
@@ -254,7 +254,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2024',
       },
     ],
-    _count: { votes: 15 },
+    _count: { votes: 15, comments: 0 },
   },
   {
     id: '10000000-0000-0000-0000-000000000007',
@@ -286,7 +286,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2025',
       },
     ],
-    _count: { votes: 20 },
+    _count: { votes: 20, comments: 0 },
   },
 
   // --- Sunken Garden (1 memory) ---
@@ -326,7 +326,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2024',
       },
     ],
-    _count: { votes: 31 },
+    _count: { votes: 31, comments: 0 },
   },
 
   // --- Oblation Plaza — 2010s era (1 memory for cross-era testing) ---
@@ -361,7 +361,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2010',
       },
     ],
-    _count: { votes: 18 },
+    _count: { votes: 18, comments: 0 },
   },
 
   // --- AS Steps — 2010s era (1 memory for cross-era testing) ---
@@ -401,7 +401,7 @@ export const MOCK_MEMORIES = [
         slug: 'batch-2012',
       },
     ],
-    _count: { votes: 9 },
+    _count: { votes: 9, comments: 0 },
   },
 
   // --- College of Engineering (0 memories) ---
