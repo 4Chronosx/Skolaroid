@@ -806,6 +806,7 @@ export function MapComponent() {
         memory={selectedMemory}
         open={memoryDetailOpen}
         onOpenChange={setMemoryDetailOpen}
+        onMemoryDeleted={() => setSelectedMemory(null)}
         hasPrevious={
           selectedMemory
             ? memories.findIndex((m) => m.id === selectedMemory.id) > 0
