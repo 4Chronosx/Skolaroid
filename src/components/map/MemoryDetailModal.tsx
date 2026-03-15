@@ -253,8 +253,10 @@ export function MemoryDetailModal({
 
   if (!memory || !dateInfo) return null;
 
-  const authorName = 'Memory Author';
-  const authorInitial = 'M';
+  const authorName = memory.creator
+    ? `${memory.creator.firstName} ${memory.creator.lastName}`
+    : 'Unknown Author';
+  const authorInitial = authorName.charAt(0);
   const commentCount = 120;
 
   const mockComments = [
