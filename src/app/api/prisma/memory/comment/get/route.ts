@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
     );
 
     // ── 3. Fetch total comment count (excluding soft-deleted) ──────────────
-    // @ts-expect-error — MemoryComment not yet in generated types; resolves after prisma generate
     const commentCount = await prisma.memoryComment.count({
       where: { memoryId, deletedAt: null },
     });

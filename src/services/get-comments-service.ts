@@ -39,7 +39,6 @@ export async function getCommentsService(
   limit: number,
   cursor?: string
 ): Promise<GetCommentsResult> {
-  // @ts-expect-error — MemoryComment not yet in generated types; resolves after prisma generate
   const rows = await prisma.memoryComment.findMany({
     where: { memoryId, deletedAt: null },
     orderBy: { createdAt: 'desc' },

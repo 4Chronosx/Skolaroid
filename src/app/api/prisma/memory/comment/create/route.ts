@@ -78,7 +78,6 @@ export async function POST(request: NextRequest) {
     const { memoryId, content } = parsed.data;
 
     // ── 3. Create comment ──────────────────────────────────────────────────
-    // @ts-expect-error — MemoryComment not yet in generated types; resolves after prisma generate
     const comment = await prisma.memoryComment.create({
       data: { memoryId, authorId: userId, content },
       select: {
