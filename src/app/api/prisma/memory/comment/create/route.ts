@@ -1,0 +1,106 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
+import { createCommentSchema } from '@/lib/schemas';
+
+/**
+ * Resolves the authenticated user for this request.
+ * Mirrors the pattern in vote/toggle/route.ts — dev seed-user fallback included.
+ */
+async function resolveUser(
+  isDev: boolean
+): Promise<{ userId: string } | { error: NextResponse }> {
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  if (authUser) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: authUser.id },
+      select: { id: true },
+    });
+
+    if (!dbUser) {
+      return {
+        error: NextResponse.json(
+          { success: false, message: 'Complete onboarding before commenting' },
+          { status: 403 }
+        ),
+      };
+    }
+
+    return { userId: dbUser.id };
+  }
+
+  if (isDev) {
+    const seedUser = await prisma.user.findUnique({
+      where: { email: 'seed@skolaroid.dev' },
+      select: { id: true },
+    });
+
+    if (seedUser) return { userId: seedUser.id };
+  }
+
+  return {
+    error: NextResponse.json(
+      { success: false, message: 'Not authenticated' },
+      { status: 401 }
+    ),
+  };
+}
+
+// ---------------------------------------------------------------------------
+
+export async function POST(request: NextRequest) {
+  const isDev = process.env.NODE_ENV === 'development';
+
+  try {
+    // ── 1. Auth ────────────────────────────────────────────────────────────
+    const resolved = await resolveUser(isDev);
+    if ('error' in resolved) return resolved.error;
+    const { userId } = resolved;
+
+    // ── 2. Validate body ───────────────────────────────────────────────────
+    const body = await request.json();
+    const parsed = createCommentSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: parsed.error.issues[0]?.message ?? 'Validation failed',
+        },
+        { status: 400 }
+      );
+    }
+
+    const { memoryId, content } = parsed.data;
+
+    // ── 3. Create comment ──────────────────────────────────────────────────
+    const comment = await prisma.memoryComment.create({
+      data: { memoryId, authorId: userId, content },
+      select: {
+        id: true,
+        content: true,
+        memoryId: true,
+        authorId: true,
+        author: { select: { id: true, firstName: true, lastName: true } },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Comment created',
+      data: comment,
+    });
+  } catch (err) {
+    console.error('[comment/create] unexpected error:', err);
+    return NextResponse.json(
+      { success: false, message: 'Unable to post comment. Please try again.' },
+      { status: 500 }
+    );
+  }
+}
