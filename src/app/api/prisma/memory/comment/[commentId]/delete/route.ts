@@ -29,7 +29,6 @@ export async function DELETE(
     }
 
     // ── 2. Fetch comment + requesting user's role ──────────────────────────
-    // @ts-expect-error — MemoryComment not yet in generated types; resolves after prisma generate
     const [comment, dbUser] = await Promise.all([
       // @ts-expect-error — MemoryComment not yet in generated types; resolves after prisma generate
       prisma.memoryComment.findUnique({

@@ -299,12 +299,12 @@ export function MemoryDetailModal({
   const authorInitial = 'M';
 
   function handleCommentSubmit(content: string) {
-    createComment.mutate({ memoryId: memory.id, content });
+    createComment.mutate({ memoryId: memory!.id, content });
     setCommentText('');
   }
 
   function handleCommentDelete(commentId: string) {
-    deleteComment.mutate({ commentId, memoryId: memory.id });
+    deleteComment.mutate({ commentId, memoryId: memory!.id });
   }
 
   // Whether covers should be visible (during open/close animations or closed state)
