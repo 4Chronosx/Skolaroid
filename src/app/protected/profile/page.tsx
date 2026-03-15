@@ -1,6 +1,7 @@
 'use client';
 
 import { useUserAuth } from '@/lib/hooks/useUserAuth';
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileBioCard } from '@/components/profile/ProfileBioCard';
 import { ProfileContactCard } from '@/components/profile/ProfileContactCard';
@@ -10,8 +11,9 @@ import { ProfileSettingsCard } from '@/components/profile/ProfileSettingsCard';
 
 export default function ProfilePage() {
   const { user, loading } = useUserAuth();
+  const { data: currentUserData, isLoading: dbUserLoading } = useCurrentUser();
 
-  if (loading) {
+  if (loading || dbUserLoading) {
     return (
       <div className="flex w-full flex-1 flex-col gap-6">
         <div className="h-32 animate-pulse rounded-xl bg-muted" />
@@ -24,13 +26,20 @@ export default function ProfilePage() {
     );
   }
 
+  const dbUser = currentUserData?.data ?? null;
+
   return (
     <div className="flex w-full flex-1 flex-col gap-6">
-      <ProfileHero user={user} />
+      <ProfileHero user={user} dbUser={dbUser} />
       <div className="grid gap-6 md:grid-cols-2">
         <ProfileBioCard />
         <ProfileContactCard />
-        <ProfileAcademicCard />
+        <ProfileAcademicCard
+          studentId={dbUser?.studentId}
+          program={dbUser?.programBatch.program.name}
+          batch={dbUser?.programBatch.batch.year}
+          status={dbUser?.status}
+        />
         <ProfileActivityCard />
         <ProfileSettingsCard />
       </div>
