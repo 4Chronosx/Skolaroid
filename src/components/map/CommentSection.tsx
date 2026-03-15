@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { formatRelativeDate } from '@/lib/utils/format-date';
@@ -15,6 +16,10 @@ interface CommentSectionProps {
   onSubmit: (content: string) => void;
   onDelete: (commentId: string) => void;
   onLoadMore: () => void;
+  /** Controlled text value — when provided, CommentInput becomes controlled. */
+  commentText?: string;
+  /** Change handler for controlled text. */
+  onCommentTextChange?: (text: string) => void;
 }
 
 export function CommentSection({
@@ -27,6 +32,8 @@ export function CommentSection({
   onSubmit,
   onDelete,
   onLoadMore,
+  commentText,
+  onCommentTextChange,
 }: CommentSectionProps) {
   return (
     <div className="flex flex-1 flex-col gap-3">
@@ -86,24 +93,46 @@ export function CommentSection({
 
       {/* Input — only shown when authenticated */}
       {currentUserId && (
-        <CommentInput onSubmit={onSubmit} isSubmitting={isSubmitting} />
+        <CommentInput
+          onSubmit={onSubmit}
+          isSubmitting={isSubmitting}
+          controlledText={commentText}
+          onControlledTextChange={onCommentTextChange}
+        />
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Isolated input so its own state doesn't re-render the comment list
+// Isolated input — supports both uncontrolled (base page) and controlled
+// (overlay pages, display-only) modes via optional controlledText prop.
 // ---------------------------------------------------------------------------
 
 function CommentInput({
   onSubmit,
   isSubmitting,
+  controlledText,
+  onControlledTextChange,
 }: {
   onSubmit: (content: string) => void;
   isSubmitting: boolean;
+  controlledText?: string;
+  onControlledTextChange?: (text: string) => void;
 }) {
-  const [text, setText] = useState('');
+  const [internalText, setInternalText] = useState('');
+
+  // Use controlled value when provided, otherwise use internal state
+  const isControlled = controlledText !== undefined;
+  const text = isControlled ? controlledText : internalText;
+
+  function setText(value: string) {
+    if (isControlled) {
+      onControlledTextChange?.(value);
+    } else {
+      setInternalText(value);
+    }
+  }
 
   function handleSubmit() {
     const trimmed = text.trim();
@@ -133,6 +162,3 @@ function CommentInput({
     </div>
   );
 }
-
-// useState is used inside CommentInput — import needed at file level
-import { useState } from 'react';

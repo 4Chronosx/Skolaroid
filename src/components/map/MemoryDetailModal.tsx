@@ -7,9 +7,12 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { MemoryWithCoordinates } from '@/lib/hooks/useAllMemoriesWithCoordinates';
 import { ActionBar } from '@/components/map/ActionBar';
 import { CommentSection } from '@/components/map/CommentSection';
-import type { Comment } from '@/services/get-comments-service';
+import { useCommentsByMemory } from '@/lib/hooks/useCommentsByMemory';
+import { useCreateComment } from '@/lib/hooks/useCreateComment';
+import { useDeleteComment } from '@/lib/hooks/useDeleteComment';
+import { useUserAuth } from '@/lib/hooks/useUserAuth';
 import Image from 'next/image';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   coverLeftVariants,
@@ -167,6 +170,12 @@ export function MemoryDetailModal({
   const handleNext = () => {
     if (!hasNext || isFlipping || !onNext) return;
 
+    // Snapshot comment text and data for the overlay, then clear for the incoming page
+    carriedCommentText.current = commentText;
+    cachedCommentsRef.current = liveComments;
+    cachedCommentCountRef.current = liveCommentCount;
+    setCommentText('');
+
     // Cache current memory and orientation so the flipping page and base left page
     // stay stable while the new image loads
     setCachedMemory(memory);
@@ -191,6 +200,12 @@ export function MemoryDetailModal({
   // Handle PREVIOUS: left page flips over to the right, revealing new content underneath
   const handlePrevious = () => {
     if (!hasPrevious || isFlipping || !onPrevious) return;
+
+    // Snapshot comment text and data, then clear for the incoming page
+    carriedCommentText.current = commentText;
+    cachedCommentsRef.current = liveComments;
+    cachedCommentCountRef.current = liveCommentCount;
+    setCommentText('');
 
     // Cache current memory and orientation so the flipping page and base left page
     // stay stable while the new image loads
@@ -253,23 +268,44 @@ export function MemoryDetailModal({
     [cachedMemory]
   );
 
+  // ── Comment hooks (must be before any early return) ───────────────────────
+  const { user } = useUserAuth();
+  const {
+    data: commentsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useCommentsByMemory(memory?.id);
+  const createComment = useCreateComment();
+  const deleteComment = useDeleteComment();
+  const [commentText, setCommentText] = useState('');
+  const carriedCommentText = useRef('');
+
+  // Derive live comment data (safe to call before early return — just derives from query)
+  const liveComments = commentsData?.pages.flatMap((p) => p.data.items) ?? [];
+  const liveCommentCount = commentsData?.pages[0]?.data.commentCount ?? 0;
+
+  // Cached comments for flip overlays (same pattern as cachedMemory)
+  const cachedCommentsRef = useRef(liveComments);
+  const cachedCommentCountRef = useRef(liveCommentCount);
+
+  // Base page always uses live data; overlays use cached snapshots
+  const allComments = liveComments;
+  const commentCount = liveCommentCount;
+
   if (!memory || !dateInfo) return null;
 
   const authorName = 'Memory Author';
   const authorInitial = 'M';
-  const commentCount = 120;
 
-  const mockComments: Comment[] = [
-    {
-      id: 'mock-1',
-      content: 'Covers collection',
-      memoryId: '',
-      authorId: 'mock-author-1',
-      author: { id: 'mock-author-1', firstName: 'Kint', lastName: 'Louise' },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
+  function handleCommentSubmit(content: string) {
+    createComment.mutate({ memoryId: memory.id, content });
+    setCommentText('');
+  }
+
+  function handleCommentDelete(commentId: string) {
+    deleteComment.mutate({ commentId, memoryId: memory.id });
+  }
 
   // Whether covers should be visible (during open/close animations or closed state)
   const showCovers = animationPhase !== 'open';
@@ -493,17 +529,43 @@ export function MemoryDetailModal({
                           {/* Action bar */}
                           <ActionBar memory={baseRightMemory} />
 
-                          {/* Comments section */}
+                          {/* Comments section — during prev flip, hold old text on exposed base */}
                           <CommentSection
-                            comments={mockComments}
-                            commentCount={commentCount}
-                            currentUserId={undefined}
-                            hasMore={false}
-                            isLoadingMore={false}
-                            isSubmitting={false}
-                            onSubmit={() => {}}
-                            onDelete={() => {}}
-                            onLoadMore={() => {}}
+                            comments={
+                              isFlipping && flipDirection === 'prev'
+                                ? cachedCommentsRef.current
+                                : allComments
+                            }
+                            commentCount={
+                              isFlipping && flipDirection === 'prev'
+                                ? cachedCommentCountRef.current
+                                : commentCount
+                            }
+                            currentUserId={user?.id}
+                            hasMore={
+                              isFlipping ? false : (hasNextPage ?? false)
+                            }
+                            isLoadingMore={
+                              isFlipping ? false : isFetchingNextPage
+                            }
+                            isSubmitting={
+                              isFlipping ? false : createComment.isPending
+                            }
+                            onSubmit={
+                              isFlipping ? () => {} : handleCommentSubmit
+                            }
+                            onDelete={
+                              isFlipping ? () => {} : handleCommentDelete
+                            }
+                            onLoadMore={isFlipping ? () => {} : fetchNextPage}
+                            commentText={
+                              isFlipping && flipDirection === 'prev'
+                                ? carriedCommentText.current
+                                : commentText
+                            }
+                            onCommentTextChange={
+                              isFlipping ? () => {} : setCommentText
+                            }
                           />
 
                           {/* Spine rings on left edge of right page - scales when left page is flipping */}
@@ -663,17 +725,19 @@ export function MemoryDetailModal({
                                 {/* Action bar */}
                                 <ActionBar memory={memory} />
 
-                                {/* Comments section */}
+                                {/* Comments section — PREV flip: cached comments, blank input */}
                                 <CommentSection
-                                  comments={mockComments}
-                                  commentCount={commentCount}
-                                  currentUserId={undefined}
+                                  comments={cachedCommentsRef.current}
+                                  commentCount={cachedCommentCountRef.current}
+                                  currentUserId={user?.id}
                                   hasMore={false}
                                   isLoadingMore={false}
                                   isSubmitting={false}
                                   onSubmit={() => {}}
                                   onDelete={() => {}}
                                   onLoadMore={() => {}}
+                                  commentText=""
+                                  onCommentTextChange={() => {}}
                                 />
 
                                 {/* Spine rings on left edge (back of left page shows right content) */}
@@ -739,17 +803,19 @@ export function MemoryDetailModal({
                               {/* Action bar */}
                               <ActionBar memory={cachedMemory!} />
 
-                              {/* Comments section */}
+                              {/* Comments section — NEXT flip: cached comments, carry snapshotted text */}
                               <CommentSection
-                                comments={mockComments}
-                                commentCount={commentCount}
-                                currentUserId={undefined}
+                                comments={cachedCommentsRef.current}
+                                commentCount={cachedCommentCountRef.current}
+                                currentUserId={user?.id}
                                 hasMore={false}
                                 isLoadingMore={false}
                                 isSubmitting={false}
                                 onSubmit={() => {}}
                                 onDelete={() => {}}
                                 onLoadMore={() => {}}
+                                commentText={carriedCommentText.current}
+                                onCommentTextChange={() => {}}
                               />
 
                               {/* Spine rings on left edge */}
