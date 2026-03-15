@@ -6,6 +6,8 @@ import { Dialog, DialogTitle } from '@/components/ui/dialog';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { MemoryWithCoordinates } from '@/lib/hooks/useAllMemoriesWithCoordinates';
 import { ActionBar } from '@/components/map/ActionBar';
+import { CommentSection } from '@/components/map/CommentSection';
+import type { Comment } from '@/services/get-comments-service';
 import Image from 'next/image';
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -257,8 +259,16 @@ export function MemoryDetailModal({
   const authorInitial = 'M';
   const commentCount = 120;
 
-  const mockComments = [
-    { authorName: 'Kint Louise', subtitle: 'Covers collection', date: 'Today' },
+  const mockComments: Comment[] = [
+    {
+      id: 'mock-1',
+      content: 'Covers collection',
+      memoryId: '',
+      authorId: 'mock-author-1',
+      author: { id: 'mock-author-1', firstName: 'Kint', lastName: 'Louise' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
   ];
 
   // Whether covers should be visible (during open/close animations or closed state)
@@ -484,43 +494,17 @@ export function MemoryDetailModal({
                           <ActionBar memory={baseRightMemory} />
 
                           {/* Comments section */}
-                          <div className="flex-1">
-                            <div className="mb-2 flex items-center gap-2">
-                              <h3 className="text-base font-medium text-black">
-                                Comments
-                              </h3>
-                              <span className="rounded-lg bg-gray-200 px-2 py-0.5 text-sm font-medium text-black">
-                                {commentCount}
-                              </span>
-                            </div>
-                            <div className="flex max-h-32 flex-col gap-3 overflow-y-auto pr-1">
-                              {mockComments.map((comment, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-start gap-2"
-                                >
-                                  <Avatar className="h-9 w-9">
-                                    <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
-                                      {comment.authorName.charAt(0)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-sm font-semibold text-slate-800">
-                                        {comment.authorName}
-                                      </p>
-                                      <span className="text-xs text-gray-400">
-                                        {comment.date}
-                                      </span>
-                                    </div>
-                                    <p className="text-sm text-slate-800">
-                                      {comment.subtitle}
-                                    </p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                          <CommentSection
+                            comments={mockComments}
+                            commentCount={commentCount}
+                            currentUserId={undefined}
+                            hasMore={false}
+                            isLoadingMore={false}
+                            isSubmitting={false}
+                            onSubmit={() => {}}
+                            onDelete={() => {}}
+                            onLoadMore={() => {}}
+                          />
 
                           {/* Spine rings on left edge of right page - scales when left page is flipping */}
                           <RightPageSpineRings
@@ -680,43 +664,17 @@ export function MemoryDetailModal({
                                 <ActionBar memory={memory} />
 
                                 {/* Comments section */}
-                                <div className="flex-1">
-                                  <div className="mb-2 flex items-center gap-2">
-                                    <h3 className="text-base font-medium text-black">
-                                      Comments
-                                    </h3>
-                                    <span className="rounded-lg bg-gray-200 px-2 py-0.5 text-sm font-medium text-black">
-                                      {commentCount}
-                                    </span>
-                                  </div>
-                                  <div className="flex max-h-32 flex-col gap-3 overflow-y-auto pr-1">
-                                    {mockComments.map((comment, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="flex items-start gap-2"
-                                      >
-                                        <Avatar className="h-9 w-9">
-                                          <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
-                                            {comment.authorName.charAt(0)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1">
-                                          <div className="flex items-center justify-between">
-                                            <p className="text-sm font-semibold text-slate-800">
-                                              {comment.authorName}
-                                            </p>
-                                            <span className="text-xs text-gray-400">
-                                              {comment.date}
-                                            </span>
-                                          </div>
-                                          <p className="text-sm text-slate-800">
-                                            {comment.subtitle}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
+                                <CommentSection
+                                  comments={mockComments}
+                                  commentCount={commentCount}
+                                  currentUserId={undefined}
+                                  hasMore={false}
+                                  isLoadingMore={false}
+                                  isSubmitting={false}
+                                  onSubmit={() => {}}
+                                  onDelete={() => {}}
+                                  onLoadMore={() => {}}
+                                />
 
                                 {/* Spine rings on left edge (back of left page shows right content) */}
                                 <RightPageSpineRings />
@@ -782,43 +740,17 @@ export function MemoryDetailModal({
                               <ActionBar memory={cachedMemory!} />
 
                               {/* Comments section */}
-                              <div className="flex-1">
-                                <div className="mb-2 flex items-center gap-2">
-                                  <h3 className="text-base font-medium text-black">
-                                    Comments
-                                  </h3>
-                                  <span className="rounded-lg bg-gray-200 px-2 py-0.5 text-sm font-medium text-black">
-                                    {commentCount}
-                                  </span>
-                                </div>
-                                <div className="flex max-h-32 flex-col gap-3 overflow-y-auto pr-1">
-                                  {mockComments.map((comment, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-start gap-2"
-                                    >
-                                      <Avatar className="h-9 w-9">
-                                        <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
-                                          {comment.authorName.charAt(0)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div className="flex-1">
-                                        <div className="flex items-center justify-between">
-                                          <p className="text-sm font-semibold text-slate-800">
-                                            {comment.authorName}
-                                          </p>
-                                          <span className="text-xs text-gray-400">
-                                            {comment.date}
-                                          </span>
-                                        </div>
-                                        <p className="text-sm text-slate-800">
-                                          {comment.subtitle}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
+                              <CommentSection
+                                comments={mockComments}
+                                commentCount={commentCount}
+                                currentUserId={undefined}
+                                hasMore={false}
+                                isLoadingMore={false}
+                                isSubmitting={false}
+                                onSubmit={() => {}}
+                                onDelete={() => {}}
+                                onLoadMore={() => {}}
+                              />
 
                               {/* Spine rings on left edge */}
                               <RightPageSpineRings />
