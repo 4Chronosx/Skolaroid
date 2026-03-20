@@ -66,6 +66,17 @@ export default function Home() {
   const [startY, setStartY] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
 
+  // After login, check for a stored invite redirect
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      const pendingRedirect = sessionStorage.getItem('invite_redirect');
+      if (pendingRedirect) {
+        sessionStorage.removeItem('invite_redirect');
+        window.location.href = pendingRedirect;
+      }
+    }
+  }, [loading, isAuthenticated]);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging || !drawerContentRef.current) return;
