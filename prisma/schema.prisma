@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,42 +7,18 @@ datasource db {
   provider = "postgresql"
 }
 
-// ============================================================================
-// ENUMS
-// ============================================================================
-
-enum Status {
-  STUDENT
-  ALUMNI
-}
-
-enum UserRole {
-  USER
-  ADMIN
-}
-
-enum MemoryVisibility {
-  PUBLIC        // Visible to everyone
-  PROGRAM_ONLY  // Visible to all batches in the program
-  BATCH_ONLY    // Visible only to specific batch
-  GROUP_ONLY    // Visible only to members of a specific private group
-  PRIVATE       // Visible only to creator
-}
-
-// ============================================================================
-// USER & AUTH
-// ============================================================================
-
 model User {
-  id             String   @id @default(uuid()) @db.Uuid // reference to auth.id
-  studentId      String   @unique @db.VarChar(50)
-  email          String   @unique @db.VarChar(255)
-  firstName      String   @db.VarChar(100)
-  lastName       String   @db.VarChar(100)
-  programBatchId String   @db.Uuid
-  programBatch   ProgramBatch @relation(fields: [programBatchId], references: [id], onDelete: Restrict)
-  
-  // Relations
+  id             String         @id @default(uuid()) @db.Uuid
+  studentId      String         @unique @db.VarChar(50)
+  email          String         @unique @db.VarChar(255)
+  firstName      String         @db.VarChar(100)
+  lastName       String         @db.VarChar(100)
+  status         Status         @default(STUDENT)
+  role           UserRole       @default(USER)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  programBatchId String         @db.Uuid
   memories       Memory[]
   votes          MemoryVote[]
   comments       MemoryComment[]
@@ -71,63 +41,50 @@ model User {
   @@index([programBatchId])
   @@index([status])
   @@index([deletedAt])
-  @@index([firstName, lastName]) // For name searches
+  @@index([firstName, lastName])
 }
 
-// ============================================================================
-// PROGRAM & BATCH STRUCTURE
-// ============================================================================
-
 model Program {
-  id             String   @id @default(uuid()) @db.Uuid
-  name           String   @db.VarChar(200)
-  description    String?  @db.Text
+  name           String         @db.VarChar(200)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  description    String?
+  id             String         @id @default(uuid()) @db.Uuid
   programBatches ProgramBatch[]
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
   @@index([name])
 }
 
 model Batch {
-  id             String   @id @default(uuid()) @db.Uuid
-  year           Int      @unique @db.SmallInt
+  year           Int            @unique @db.SmallInt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  id             String         @id @default(uuid()) @db.Uuid
   programBatches ProgramBatch[]
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
   @@index([year])
 }
 
 model ProgramBatch {
-  id        String   @id @default(uuid()) @db.Uuid
-  programId String   @db.Uuid
-  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  batchId   String   @db.Uuid
-  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  
-  // Relations
-  students  User[]
-  memories  Memory[]
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  programId String   @db.Uuid
+  batchId   String   @db.Uuid
+  memories  Memory[]
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  students  User[]
 
   @@unique([programId, batchId])
   @@index([programId])
   @@index([batchId])
 }
 
-// ============================================================================
-// MEMORIES
-// ============================================================================
-
 model Memory {
   id             String           @id @default(uuid()) @db.Uuid
   title          String           @db.VarChar(255)
-  description    String?          @db.Text
+  description    String?
   mediaURL       String?          @db.VarChar(2048)
   uploadDate     DateTime         @default(now())
   visibility     MemoryVisibility @default(PUBLIC)
@@ -143,23 +100,20 @@ model Memory {
   
   // Creator (nullable to preserve memories if user deleted)
   creatorId      String?          @db.Uuid
-  creator        User?            @relation(fields: [creatorId], references: [id], onDelete: SetNull)
-  
-  // Program & Batch
-  programBatchId String           @db.Uuid
-  programBatch   ProgramBatch     @relation(fields: [programBatchId], references: [id], onDelete: Restrict)
-  
-  // Location
   locationId     String           @db.Uuid
-  location       Location         @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  
-  // Soft delete & archiving
-  isArchived     Boolean          @default(false)
-  deletedAt      DateTime?
-  
-  // Timestamps
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+  isArchived     Boolean          @default(false)
+  visibility     MemoryVisibility @default(PUBLIC)
+  programBatchId String           @db.Uuid
+  privateGroupId String?          @db.Uuid
+  creator        User?            @relation(fields: [creatorId], references: [id])
+  location       Location         @relation(fields: [locationId], references: [id])
+  privateGroup   PrivateGroup?    @relation(fields: [privateGroupId], references: [id], onDelete: Restrict)
+  programBatch   ProgramBatch     @relation(fields: [programBatchId], references: [id])
+  votes          MemoryVote[]
+  tags           Tag[]            @relation("MemoryTags")
 
   @@index([creatorId])
   @@index([programBatchId])
@@ -168,7 +122,7 @@ model Memory {
   @@index([visibility])
   @@index([isArchived])
   @@index([deletedAt])
-  @@index([createdAt]) // For chronological queries
+  @@index([createdAt])
   @@index([privateGroupId])
 }
 
@@ -200,82 +154,92 @@ model MemoryComment {
 model MemoryVote {
   id        String   @id @default(uuid()) @db.Uuid
   memoryId  String   @db.Uuid
-  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
   userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
   createdAt DateTime @default(now())
-  
-  @@unique([memoryId, userId]) // One vote per user per memory
+  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([memoryId, userId])
   @@index([memoryId])
   @@index([userId])
   @@index([createdAt])
 }
 
-// ============================================================================
-// LOCATION
-// ============================================================================
-
 model Location {
   id           String   @id @default(uuid()) @db.Uuid
   buildingName String   @db.VarChar(200)
-  description  String?  @db.Text
-  latitude     Float    @db.DoublePrecision
-  longitude    Float    @db.DoublePrecision
-  
-  // Relations
-  memories     Memory[]
-  
+  latitude     Float
+  longitude    Float
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  description  String?
+  memories     Memory[]
 
-  @@unique([latitude, longitude]) // Prevent duplicate locations
+  @@unique([latitude, longitude])
   @@index([buildingName])
 }
-
-// ============================================================================
-// TAGS
-// ============================================================================
 
 model Tag {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @unique @db.VarChar(50)
-  slug      String   @unique @db.VarChar(50) // URL-friendly version
-  
-  // Relations
-  memories  Memory[] @relation("MemoryTags")
-  
+  slug      String   @unique @db.VarChar(50)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  memories  Memory[] @relation("MemoryTags")
 
   @@index([name])
   @@index([slug])
 }
 
-
 model PrivateGroup {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @unique @db.VarChar(50)
-  description String?   @db.Text
-
-  // Members (many-to-many)
-  members     User[]    @relation("GroupMembers")
-
-  // Memories posted to this group
-  memories    Memory[]
-
-  // Creator (nullable to preserve group if user deleted)
-  creatorId   String?   @db.Uuid
-  creator     User?     @relation("GroupCreator", fields: [creatorId], references: [id], onDelete: SetNull)
-
-  // Soft delete
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @unique @db.VarChar(50)
+  description String?
+  creatorId   String?      @db.Uuid
   deletedAt   DateTime?
-
-  // Timestamps
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memories    Memory[]
+  creator     User?        @relation("GroupCreator", fields: [creatorId], references: [id])
+  members     User[]       @relation("GroupMembers")
+  invitations Invitation[]
 
   @@index([name])
   @@index([creatorId])
   @@index([deletedAt])
+}
+
+model Invitation {
+  id        String       @id @default(uuid()) @db.Uuid
+  groupId   String       @db.Uuid
+  invitedBy String       @db.Uuid
+  email     String       @db.VarChar(255)
+  token     String       @unique @db.VarChar(64)
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+  group     PrivateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  inviter   User         @relation("SentInvitations", fields: [invitedBy], references: [id])
+
+  @@index([token])
+  @@index([groupId])
+  @@index([email])
+  @@index([expiresAt])
+}
+
+enum Status {
+  STUDENT
+  ALUMNI
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum MemoryVisibility {
+  PUBLIC
+  PROGRAM_ONLY
+  BATCH_ONLY
+  PRIVATE
+  GROUP_ONLY
 }

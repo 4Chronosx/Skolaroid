@@ -268,6 +268,33 @@ export type UpdateGroupServerInput = z.infer<typeof updateGroupServerSchema>;
 export type GroupMemberInput = z.infer<typeof groupMemberSchema>;
 
 // ============================================================================
+// INVITATION SCHEMAS
+// ============================================================================
+
+/** Schema for sending invitations — comma-separated emails. */
+export const sendInvitationsSchema = z.object({
+  groupId: z.string().uuid('Invalid group ID'),
+  emails: z
+    .array(z.string().email('Invalid email address'))
+    .min(1, 'At least one email is required')
+    .max(20, 'Maximum 20 invitations at once'),
+});
+
+/** Schema for validating an invitation token. */
+export const invitationTokenSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+});
+
+/** Schema for accepting/declining an invitation. */
+export const invitationActionSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+});
+
+export type SendInvitationsInput = z.infer<typeof sendInvitationsSchema>;
+export type InvitationTokenInput = z.infer<typeof invitationTokenSchema>;
+export type InvitationActionInput = z.infer<typeof invitationActionSchema>;
+
+// ============================================================================
 // AUTH TYPE EXPORTS
 // ============================================================================
 

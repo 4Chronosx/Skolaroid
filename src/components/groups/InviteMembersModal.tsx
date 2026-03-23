@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Link2, Mail, Copy, Check } from 'lucide-react';
+import { Link2, Mail, Copy, Check, Loader2 } from 'lucide-react';
+import { useSendInvitations } from '@/lib/hooks/useInvitation';
 
 interface InviteMembersModalProps {
   open: boolean;
@@ -22,6 +23,7 @@ export function InviteMembersModal({
 }: InviteMembersModalProps) {
   const [emails, setEmails] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
+  const sendInvitations = useSendInvitations();
 
   // TODO: Replace with real invite link generation via API
   const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/invite/${groupId}`;
@@ -37,31 +39,56 @@ export function InviteMembersModal({
     }
   };
 
-  const handleSendInvites = () => {
+  const handleSendInvites = async () => {
+    console.log('Sending invites to:', emails);
+    console.log(
+      'Parsed emails:',
+      emails
+        .split(',')
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0)
+    );
+    console.log('Group ID:', groupId);
     if (!emails.trim()) return;
-    // TODO: API call to send email invites
-    showSuccess('Invitations sent!');
-    setEmails('');
-    onOpenChange(false);
+
+    const emailList = emails
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.length > 0);
+
+    if (emailList.length === 0) return;
+
+    try {
+      const results = await sendInvitations.mutateAsync({
+        groupId,
+        emails: emailList,
+      });
+      showSuccess(`${results.length} invitation(s) sent!`);
+      setEmails('');
+      onOpenChange(false);
+    } catch {
+      // Error is shown through the mutation state
+    }
   };
 
   const handleClose = () => {
     setEmails('');
     setLinkCopied(false);
+    sendInvitations.reset();
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
       <DialogContent
-        className="max-w-sm gap-0 overflow-hidden rounded-2xl border-gray-100 p-0 shadow-2xl"
+        className="max-h-[90vh] w-[calc(100%-2rem)] max-w-sm gap-0 overflow-hidden rounded-2xl border-gray-100 p-0 shadow-2xl"
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">
           Invite Members to {groupName}
         </DialogTitle>
 
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col overflow-y-auto">
           {/* Header */}
           <div className="px-6 pb-1 pt-6">
             <h2 className="text-base font-semibold text-gray-900">
@@ -73,12 +100,12 @@ export function InviteMembersModal({
           </div>
 
           {/* Invite Link */}
-          <div className="space-y-2 px-6 pt-4">
+          <div className="min-w-0 space-y-2 px-6 pt-4">
             <label className="text-xs font-medium text-gray-500">
               Invite Link
             </label>
-            <div className="flex items-center gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
                 <Link2 size={14} className="shrink-0 text-gray-400" />
                 <span className="truncate text-xs text-gray-600">
                   {inviteLink}
@@ -118,22 +145,34 @@ export function InviteMembersModal({
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-2 px-6 pb-6 pt-5">
-            <button
-              onClick={handleClose}
-              className="rounded-xl px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSendInvites}
-              disabled={!emails.trim()}
-              className={`rounded-xl bg-skolaroid-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-skolaroid-blue/90 active:scale-[0.98] ${
-                !emails.trim() ? 'cursor-not-allowed opacity-50' : ''
-              }`}
-            >
-              Send Invites
-            </button>
+          <div className="flex flex-col gap-2 px-6 pb-6 pt-5">
+            {sendInvitations.isError && (
+              <p className="text-xs text-red-500">
+                {sendInvitations.error?.message ?? 'Failed to send invitations'}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={handleClose}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendInvites}
+                disabled={!emails.trim() || sendInvitations.isPending}
+                className={`flex items-center gap-2 rounded-xl bg-skolaroid-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-skolaroid-blue/90 active:scale-[0.98] ${
+                  !emails.trim() || sendInvitations.isPending
+                    ? 'cursor-not-allowed opacity-50'
+                    : ''
+                }`}
+              >
+                {sendInvitations.isPending && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
+                Send Invites
+              </button>
+            </div>
           </div>
         </div>
       </DialogContent>
