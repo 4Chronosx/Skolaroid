@@ -1,13 +1,33 @@
 'use client';
 
-import { MoreHorizontal, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Globe,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  CircleOff,
+} from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogTitle } from '@/components/ui/dialog';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { MemoryWithCoordinates } from '@/lib/hooks/useAllMemoriesWithCoordinates';
 import { ActionBar } from '@/components/map/ActionBar';
+import { DeleteMemoryModal } from '@/components/map/DeleteMemoryModal';
+import { useDeleteMemory } from '@/lib/hooks/useDeleteMemory';
+import { CommentSection } from '@/components/map/CommentSection';
+import { useCommentsByMemory } from '@/lib/hooks/useCommentsByMemory';
+import { useCreateComment } from '@/lib/hooks/useCreateComment';
+import { useDeleteComment } from '@/lib/hooks/useDeleteComment';
+import { useUserAuth } from '@/lib/hooks/useUserAuth';
 import Image from 'next/image';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   coverLeftVariants,
@@ -28,6 +48,7 @@ interface MemoryDetailModalProps {
   onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
+  onMemoryDeleted?: () => void;
 }
 
 type AnimationPhase = 'closed' | 'opening' | 'open' | 'closing';
@@ -118,7 +139,17 @@ export function MemoryDetailModal({
   onNext,
   hasPrevious = false,
   hasNext = false,
+  onMemoryDeleted,
 }: MemoryDetailModalProps) {
+  const { user: authUser } = useUserAuth();
+  const deleteMemory = useDeleteMemory();
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const isOwner = !!(
+    authUser &&
+    memory?.creatorId &&
+    memory.creatorId === authUser.id
+  );
+
   const [animationPhase, setAnimationPhase] =
     useState<AnimationPhase>('closed');
   const [isRightPageFlipped, setIsRightPageFlipped] = useState(false);
@@ -165,6 +196,12 @@ export function MemoryDetailModal({
   const handleNext = () => {
     if (!hasNext || isFlipping || !onNext) return;
 
+    // Snapshot comment text and data for the overlay, then clear for the incoming page
+    carriedCommentText.current = commentText;
+    cachedCommentsRef.current = liveComments;
+    cachedCommentCountRef.current = liveCommentCount;
+    setCommentText('');
+
     // Cache current memory and orientation so the flipping page and base left page
     // stay stable while the new image loads
     setCachedMemory(memory);
@@ -189,6 +226,12 @@ export function MemoryDetailModal({
   // Handle PREVIOUS: left page flips over to the right, revealing new content underneath
   const handlePrevious = () => {
     if (!hasPrevious || isFlipping || !onPrevious) return;
+
+    // Snapshot comment text and data, then clear for the incoming page
+    carriedCommentText.current = commentText;
+    cachedCommentsRef.current = liveComments;
+    cachedCommentCountRef.current = liveCommentCount;
+    setCommentText('');
 
     // Cache current memory and orientation so the flipping page and base left page
     // stay stable while the new image loads
@@ -251,15 +294,46 @@ export function MemoryDetailModal({
     [cachedMemory]
   );
 
+  // ── Comment hooks (must be before any early return) ───────────────────────
+  const { user } = useUserAuth();
+  const {
+    data: commentsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useCommentsByMemory(memory?.id);
+  const createComment = useCreateComment();
+  const deleteComment = useDeleteComment();
+  const [commentText, setCommentText] = useState('');
+  const carriedCommentText = useRef('');
+
+  // Derive live comment data (safe to call before early return — just derives from query)
+  const liveComments = commentsData?.pages.flatMap((p) => p.data.items) ?? [];
+  const liveCommentCount = commentsData?.pages[0]?.data.commentCount ?? 0;
+
+  // Cached comments for flip overlays (same pattern as cachedMemory)
+  const cachedCommentsRef = useRef(liveComments);
+  const cachedCommentCountRef = useRef(liveCommentCount);
+
+  // Base page always uses live data; overlays use cached snapshots
+  const allComments = liveComments;
+  const commentCount = liveCommentCount;
+
   if (!memory || !dateInfo) return null;
 
-  const authorName = 'Memory Author';
-  const authorInitial = 'M';
-  const commentCount = 120;
+  const authorName = memory.creator
+    ? `${memory.creator.firstName} ${memory.creator.lastName}`
+    : 'Unknown Author';
+  const authorInitial = authorName.charAt(0);
 
-  const mockComments = [
-    { authorName: 'Kint Louise', subtitle: 'Covers collection', date: 'Today' },
-  ];
+  function handleCommentSubmit(content: string) {
+    createComment.mutate({ memoryId: memory!.id, content });
+    setCommentText('');
+  }
+
+  function handleCommentDelete(commentId: string) {
+    deleteComment.mutate({ commentId, memoryId: memory!.id });
+  }
 
   // Whether covers should be visible (during open/close animations or closed state)
   const showCovers = animationPhase !== 'open';
@@ -279,370 +353,479 @@ export function MemoryDetailModal({
   )!;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <AnimatePresence>
-        {open && (
-          <DialogPrimitive.Portal forceMount>
-            {/* Overlay */}
-            <motion.div
-              className="fixed inset-0 z-50 bg-black/50"
-              variants={overlayVariants}
-              initial="closed"
-              animate="open"
-              exit="closed"
-            />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <AnimatePresence>
+          {open && (
+            <DialogPrimitive.Portal forceMount>
+              {/* Overlay */}
+              <motion.div
+                className="fixed inset-0 z-50 bg-black/50"
+                variants={overlayVariants}
+                initial="closed"
+                animate="open"
+                exit="closed"
+              />
 
-            {/* Content Container */}
-            <DialogPrimitive.Content asChild forceMount>
-              <div className="fixed inset-0 z-50 flex items-center justify-center">
-                <DialogTitle className="sr-only">{memory.title}</DialogTitle>
+              {/* Content Container */}
+              <DialogPrimitive.Content asChild forceMount>
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                  <DialogTitle className="sr-only">{memory.title}</DialogTitle>
 
-                {/* Wrapper with perspective for 3D */}
-                <div
-                  className="flex items-center gap-6"
-                  style={{ perspective: '2000px' }}
-                >
-                  {/* Left chevron */}
-                  <motion.button
-                    onClick={handlePrevious}
-                    disabled={!hasPrevious || isFlipping}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg backdrop-blur-sm transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
-                    variants={chevronVariants}
-                    initial="idle"
-                    whileHover={hasPrevious ? 'hover' : 'disabled'}
-                    whileTap={hasPrevious ? 'tap' : 'disabled'}
-                    aria-label="Previous memory"
-                  >
-                    <ChevronLeft className="h-6 w-6" />
-                  </motion.button>
-
-                  {/* Book */}
+                  {/* Wrapper with perspective for 3D */}
                   <div
-                    className="relative"
-                    style={{
-                      width: '968px',
-                      height: '650px', // Fixed height for the book
-                      overflow: 'visible',
-                      transformStyle: 'preserve-3d',
-                    }}
+                    className="flex items-center gap-6"
+                    style={{ perspective: '2000px' }}
                   >
-                    {/* Pages Layer (always visible) */}
+                    {/* Left chevron */}
+                    <motion.button
+                      onClick={handlePrevious}
+                      disabled={!hasPrevious || isFlipping}
+                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg backdrop-blur-sm transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
+                      variants={chevronVariants}
+                      initial="idle"
+                      whileHover={hasPrevious ? 'hover' : 'disabled'}
+                      whileTap={hasPrevious ? 'tap' : 'disabled'}
+                      aria-label="Previous memory"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </motion.button>
+
+                    {/* Book */}
                     <div
-                      className="absolute inset-0 rounded-2xl bg-sky-200 p-2 shadow-[0px_2px_4px_0px_rgba(0,0,0,0.25)]"
+                      className="relative"
                       style={{
+                        width: '968px',
+                        height: '650px', // Fixed height for the book
                         overflow: 'visible',
                         transformStyle: 'preserve-3d',
                       }}
                     >
-                      {/* Notebook tab */}
-                      <div className="absolute -top-5 left-3 rounded-t-md bg-sky-200 px-3 py-0.5">
-                        <span className="text-[10px] text-slate-600">
-                          {memory.location?.buildingName || 'Memory'}
-                        </span>
-                      </div>
-
-                      {/* Two-page spread */}
+                      {/* Pages Layer (always visible) */}
                       <div
-                        className="relative flex h-full gap-2"
+                        className="absolute inset-0 rounded-2xl bg-sky-200 p-2 shadow-[0px_2px_4px_0px_rgba(0,0,0,0.25)]"
                         style={{
+                          overflow: 'visible',
                           transformStyle: 'preserve-3d',
                         }}
                       >
-                        {/* BASE LEFT PAGE (shows current/new content) */}
-                        <div
-                          className={`${PAGE_BASE_STYLES} relative`}
-                          style={{
-                            width: '472px',
-                            zIndex: 1,
-                          }}
-                        >
-                          {/* Date card */}
-                          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
-                            <div>
-                              <p className="text-xs font-normal text-skolaroid-blue">
-                                WHEN
-                              </p>
-                              <p className="text-base font-medium text-black">
-                                {baseLeftDateInfo.dayOfWeek},{' '}
-                                {baseLeftDateInfo.month}{' '}
-                                {baseLeftDateInfo.dayNumber}
-                              </p>
-                              <p className="text-[8px] text-gray-400">
-                                {baseLeftDateInfo.uploadTime.replace(/:/g, '-')}
-                              </p>
-                            </div>
-                            <div className="flex h-14 w-14 flex-col overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-neutral-50/50 to-gray-400/50">
-                              <div className="h-3 w-full rounded-t-md bg-skolaroid-blue" />
-                              <div className="flex flex-1 items-center justify-center">
-                                <span className="text-2xl font-medium text-black">
-                                  {baseLeftDateInfo.dayNumber}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Polaroid photo */}
-                          <div className="flex flex-1 items-center justify-center">
-                            <div className="w-full">
-                              {baseLeftMemory.mediaURL ? (
-                                <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                  <div className="relative h-80 w-full overflow-hidden">
-                                    <Image
-                                      src={baseLeftMemory.mediaURL}
-                                      alt={baseLeftMemory.title}
-                                      fill
-                                      className="object-cover"
-                                    />
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                  <div className="flex h-80 w-full items-center justify-center bg-gray-100">
-                                    <span className="text-xs text-gray-400">
-                                      No image
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Calendar week strip */}
-                          <div className="flex items-center justify-center gap-0.5">
-                            {baseLeftDateInfo.calendarWeek.map((day) => (
-                              <div
-                                key={day.label + day.number}
-                                className="flex h-20 w-14 flex-col items-center overflow-hidden rounded bg-stone-50"
-                              >
-                                <span className="mt-1 text-[10px] text-gray-400">
-                                  {day.label}
-                                </span>
-                                <div className="flex flex-1 items-center justify-center">
-                                  {day.active ? (
-                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-skolaroid-blue">
-                                      <span className="text-sm font-medium text-white">
-                                        {day.number}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm font-medium text-slate-700">
-                                      {day.number}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Spine rings on right edge of left page - scales when right page is flipping */}
-                          <LeftPageSpineRings
-                            shouldScale={isFlipping && flipDirection === 'next'}
-                          />
+                        {/* Notebook tab */}
+                        <div className="absolute -top-5 left-3 rounded-t-md bg-sky-200 px-3 py-0.5">
+                          <span className="text-[10px] text-slate-600">
+                            {memory.location?.buildingName || 'Memory'}
+                          </span>
                         </div>
 
-                        {/* BASE RIGHT PAGE (shows current/new content) */}
+                        {/* Two-page spread */}
                         <div
-                          className={`${PAGE_BASE_STYLES} relative`}
+                          className="relative flex h-full gap-2"
                           style={{
-                            width: '472px',
-                            zIndex: 1,
+                            transformStyle: 'preserve-3d',
                           }}
                         >
-                          {/* Author header */}
-                          <div className="flex items-start gap-3">
-                            <Avatar className="h-9 w-9">
-                              <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
-                                {authorInitial}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold text-slate-800">
-                                {authorName}
-                              </p>
-                              <div className="flex items-center gap-1 text-xs text-gray-400">
-                                <Globe className="h-3 w-3" />
-                                <span>Public</span>
+                          {/* BASE LEFT PAGE (shows current/new content) */}
+                          <div
+                            className={`${PAGE_BASE_STYLES} relative`}
+                            style={{
+                              width: '472px',
+                              zIndex: 1,
+                            }}
+                          >
+                            {/* Date card */}
+                            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
+                              <div>
+                                <p className="text-xs font-normal text-skolaroid-blue">
+                                  WHEN
+                                </p>
+                                <p className="text-base font-medium text-black">
+                                  {baseLeftDateInfo.dayOfWeek},{' '}
+                                  {baseLeftDateInfo.month}{' '}
+                                  {baseLeftDateInfo.dayNumber}
+                                </p>
+                                <p className="text-[8px] text-gray-400">
+                                  {baseLeftDateInfo.uploadTime.replace(
+                                    /:/g,
+                                    '-'
+                                  )}
+                                </p>
+                              </div>
+                              <div className="flex h-14 w-14 flex-col overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-neutral-50/50 to-gray-400/50">
+                                <div className="h-3 w-full rounded-t-md bg-skolaroid-blue" />
+                                <div className="flex flex-1 items-center justify-center">
+                                  <span className="text-2xl font-medium text-black">
+                                    {baseLeftDateInfo.dayNumber}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                            <button
-                              className="text-gray-400 hover:text-slate-600"
-                              aria-label="More options"
-                            >
-                              <MoreHorizontal className="h-5 w-5" />
-                            </button>
-                          </div>
 
-                          {/* Caption card */}
-                          <div className="rounded-2xl bg-gradient-to-b from-slate-100 to-gray-100 p-5 shadow-[0px_1px_2px_0.5px_rgba(0,0,0,0.25)] outline outline-[3px] outline-white">
-                            <p className="text-center font-dancing text-2xl leading-relaxed text-slate-800">
-                              {baseRightMemory.description ||
-                                'A memorable moment...'}
-                            </p>
-                          </div>
-
-                          {/* Action bar */}
-                          <ActionBar memory={baseRightMemory} />
-
-                          {/* Comments section */}
-                          <div className="flex-1">
-                            <div className="mb-2 flex items-center gap-2">
-                              <h3 className="text-base font-medium text-black">
-                                Comments
-                              </h3>
-                              <span className="rounded-lg bg-gray-200 px-2 py-0.5 text-sm font-medium text-black">
-                                {commentCount}
-                              </span>
-                            </div>
-                            <div className="flex max-h-32 flex-col gap-3 overflow-y-auto pr-1">
-                              {mockComments.map((comment, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-start gap-2"
-                                >
-                                  <Avatar className="h-9 w-9">
-                                    <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
-                                      {comment.authorName.charAt(0)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-sm font-semibold text-slate-800">
-                                        {comment.authorName}
-                                      </p>
+                            {/* Polaroid photo */}
+                            <div className="flex flex-1 items-center justify-center">
+                              <div className="w-full">
+                                {baseLeftMemory.mediaURL ? (
+                                  <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
+                                    <div className="relative h-80 w-full overflow-hidden">
+                                      <Image
+                                        src={baseLeftMemory.mediaURL}
+                                        alt={baseLeftMemory.title}
+                                        fill
+                                        className="object-cover"
+                                      />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
+                                    <div className="flex h-80 w-full items-center justify-center bg-gray-100">
                                       <span className="text-xs text-gray-400">
-                                        {comment.date}
+                                        No image
                                       </span>
                                     </div>
-                                    <p className="text-sm text-slate-800">
-                                      {comment.subtitle}
-                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Calendar week strip */}
+                            <div className="flex items-center justify-center gap-0.5">
+                              {baseLeftDateInfo.calendarWeek.map((day) => (
+                                <div
+                                  key={day.label + day.number}
+                                  className="flex h-20 w-14 flex-col items-center overflow-hidden rounded bg-stone-50"
+                                >
+                                  <span className="mt-1 text-[10px] text-gray-400">
+                                    {day.label}
+                                  </span>
+                                  <div className="flex flex-1 items-center justify-center">
+                                    {day.active ? (
+                                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-skolaroid-blue">
+                                        <span className="text-sm font-medium text-white">
+                                          {day.number}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-sm font-medium text-slate-700">
+                                        {day.number}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               ))}
                             </div>
+
+                            {/* Spine rings on right edge of left page - scales when right page is flipping */}
+                            <LeftPageSpineRings
+                              shouldScale={
+                                isFlipping && flipDirection === 'next'
+                              }
+                            />
                           </div>
 
-                          {/* Spine rings on left edge of right page - scales when left page is flipping */}
-                          <RightPageSpineRings
-                            shouldScale={isFlipping && flipDirection === 'prev'}
-                          />
-                        </div>
+                          {/* BASE RIGHT PAGE (shows current/new content) */}
+                          <div
+                            className={`${PAGE_BASE_STYLES} relative`}
+                            style={{
+                              width: '472px',
+                              zIndex: 1,
+                            }}
+                          >
+                            {/* Author header */}
+                            <div className="flex items-start gap-3">
+                              <Avatar className="h-9 w-9">
+                                <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
+                                  {authorInitial}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-slate-800">
+                                  {authorName}
+                                </p>
+                                <div className="flex items-center gap-1 text-xs text-gray-400">
+                                  <Globe className="h-3 w-3" />
+                                  <span>Public</span>
+                                </div>
+                              </div>
+                              {isOwner ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      className="text-gray-400 hover:text-slate-600"
+                                      aria-label="More options"
+                                    >
+                                      <MoreHorizontal className="h-5 w-5" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      className="text-red-600 focus:text-red-600"
+                                      onClick={() => setDeleteModalOpen(true)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete Memory
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : (
+                                <button
+                                  className="cursor-not-allowed text-gray-300"
+                                  aria-label="No actions available"
+                                  disabled
+                                >
+                                  <CircleOff className="h-5 w-5" />
+                                </button>
+                              )}
+                            </div>
 
-                        {/* ANIMATED LEFT PAGE OVERLAY - shows cached/old content during PREV flip */}
-                        {cachedMemory &&
-                          cachedDateInfo &&
-                          flipDirection === 'prev' && (
+                            {/* Caption card */}
+                            <div className="rounded-2xl bg-gradient-to-b from-slate-100 to-gray-100 p-5 shadow-[0px_1px_2px_0.5px_rgba(0,0,0,0.25)] outline outline-[3px] outline-white">
+                              <p className="text-center font-dancing text-2xl leading-relaxed text-slate-800">
+                                {baseRightMemory.description ||
+                                  'A memorable moment...'}
+                              </p>
+                            </div>
+
+                            {/* Action bar */}
+                            <ActionBar memory={baseRightMemory} />
+
+                            {/* Comments section — during prev flip, hold old text on exposed base */}
+                            <CommentSection
+                              comments={
+                                isFlipping && flipDirection === 'prev'
+                                  ? cachedCommentsRef.current
+                                  : allComments
+                              }
+                              commentCount={
+                                isFlipping && flipDirection === 'prev'
+                                  ? cachedCommentCountRef.current
+                                  : commentCount
+                              }
+                              currentUserId={user?.id}
+                              hasMore={
+                                isFlipping ? false : (hasNextPage ?? false)
+                              }
+                              isLoadingMore={
+                                isFlipping ? false : isFetchingNextPage
+                              }
+                              isSubmitting={
+                                isFlipping ? false : createComment.isPending
+                              }
+                              onSubmit={
+                                isFlipping ? () => {} : handleCommentSubmit
+                              }
+                              onDelete={
+                                isFlipping ? () => {} : handleCommentDelete
+                              }
+                              onLoadMore={isFlipping ? () => {} : fetchNextPage}
+                              commentText={
+                                isFlipping && flipDirection === 'prev'
+                                  ? carriedCommentText.current
+                                  : commentText
+                              }
+                              onCommentTextChange={
+                                isFlipping ? () => {} : setCommentText
+                              }
+                            />
+
+                            {/* Spine rings on left edge of right page - scales when left page is flipping */}
+                            <RightPageSpineRings
+                              shouldScale={
+                                isFlipping && flipDirection === 'prev'
+                              }
+                            />
+                          </div>
+
+                          {/* ANIMATED LEFT PAGE OVERLAY - shows cached/old content during PREV flip */}
+                          {cachedMemory &&
+                            cachedDateInfo &&
+                            flipDirection === 'prev' && (
+                              <motion.div
+                                className="absolute top-0"
+                                style={{
+                                  left: '8px', // Account for container p-2 padding
+                                  width: '472px', // (968px - 16px padding - 8px gap) / 2
+                                  height: '100%',
+                                  transformStyle: 'preserve-3d',
+                                  transformOrigin: '472px 50%', // Right edge, center
+                                  willChange: 'transform',
+                                  zIndex: 20, // Above base pages
+                                }}
+                                variants={leftPageFlipVariants}
+                                initial="flat"
+                                animate={isLeftPageFlipped ? 'flipped' : 'flat'}
+                              >
+                                {/* Front of flipping left page - shows cached/old content */}
+                                <div
+                                  className={PAGE_FACE_STYLES}
+                                  style={{ backfaceVisibility: 'hidden' }}
+                                >
+                                  {/* Date card - cached content */}
+                                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
+                                    <div>
+                                      <p className="text-xs font-normal text-skolaroid-blue">
+                                        WHEN
+                                      </p>
+                                      <p className="text-base font-medium text-black">
+                                        {cachedDateInfo.dayOfWeek},{' '}
+                                        {cachedDateInfo.month}{' '}
+                                        {cachedDateInfo.dayNumber}
+                                      </p>
+                                      <p className="text-[8px] text-gray-400">
+                                        {cachedDateInfo.uploadTime.replace(
+                                          /:/g,
+                                          '-'
+                                        )}
+                                      </p>
+                                    </div>
+                                    <div className="flex h-14 w-14 flex-col overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-neutral-50/50 to-gray-400/50">
+                                      <div className="h-3 w-full rounded-t-md bg-skolaroid-blue" />
+                                      <div className="flex flex-1 items-center justify-center">
+                                        <span className="text-2xl font-medium text-black">
+                                          {cachedDateInfo.dayNumber}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Polaroid photo - cached content */}
+                                  <div className="flex flex-1 items-center justify-center">
+                                    <div className="w-full">
+                                      {cachedMemory.mediaURL ? (
+                                        <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
+                                          <div className="relative h-80 w-full overflow-hidden">
+                                            <Image
+                                              src={cachedMemory.mediaURL}
+                                              alt={cachedMemory.title}
+                                              fill
+                                              className="object-cover"
+                                            />
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
+                                          <div className="flex h-80 w-full items-center justify-center bg-gray-100">
+                                            <span className="text-xs text-gray-400">
+                                              No image
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Calendar week strip - cached content */}
+                                  <div className="flex items-center justify-center gap-0.5">
+                                    {cachedDateInfo.calendarWeek.map((day) => (
+                                      <div
+                                        key={day.label + day.number}
+                                        className="flex h-20 w-14 flex-col items-center overflow-hidden rounded bg-stone-50"
+                                      >
+                                        <span className="mt-1 text-[10px] text-gray-400">
+                                          {day.label}
+                                        </span>
+                                        <div className="flex flex-1 items-center justify-center">
+                                          {day.active ? (
+                                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-skolaroid-blue">
+                                              <span className="text-sm font-medium text-white">
+                                                {day.number}
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <span className="text-sm font-medium text-slate-700">
+                                              {day.number}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Spine rings on right edge */}
+                                  <LeftPageSpineRings />
+                                </div>
+                                {/* Back of flipping left page - shows NEW right content */}
+                                <div
+                                  className={PAGE_FACE_STYLES}
+                                  style={{
+                                    transform: 'rotateY(180deg)',
+                                    backfaceVisibility: 'hidden',
+                                  }}
+                                >
+                                  {/* Author header */}
+                                  <div className="flex items-start gap-3">
+                                    <Avatar className="h-9 w-9">
+                                      <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
+                                        {authorInitial}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1">
+                                      <p className="text-sm font-semibold text-slate-800">
+                                        {authorName}
+                                      </p>
+                                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                                        <Globe className="h-3 w-3" />
+                                        <span>Public</span>
+                                      </div>
+                                    </div>
+                                    <button
+                                      className="text-gray-400 hover:text-slate-600"
+                                      aria-label="More options"
+                                    >
+                                      <MoreHorizontal className="h-5 w-5" />
+                                    </button>
+                                  </div>
+
+                                  {/* Caption card */}
+                                  <div className="rounded-2xl bg-gradient-to-b from-slate-100 to-gray-100 p-5 shadow-[0px_1px_2px_0.5px_rgba(0,0,0,0.25)] outline outline-[3px] outline-white">
+                                    <p className="text-center font-dancing text-2xl leading-relaxed text-slate-800">
+                                      {memory.description ||
+                                        'A memorable moment...'}
+                                    </p>
+                                  </div>
+
+                                  {/* Action bar */}
+                                  <ActionBar memory={memory} />
+
+                                  {/* Comments section — PREV flip: cached comments, blank input */}
+                                  <CommentSection
+                                    comments={cachedCommentsRef.current}
+                                    commentCount={cachedCommentCountRef.current}
+                                    currentUserId={user?.id}
+                                    hasMore={false}
+                                    isLoadingMore={false}
+                                    isSubmitting={false}
+                                    onSubmit={() => {}}
+                                    onDelete={() => {}}
+                                    onLoadMore={() => {}}
+                                    commentText=""
+                                    onCommentTextChange={() => {}}
+                                  />
+
+                                  {/* Spine rings on left edge (back of left page shows right content) */}
+                                  <RightPageSpineRings />
+                                </div>
+                              </motion.div>
+                            )}
+
+                          {/* ANIMATED RIGHT PAGE OVERLAY - shows cached/old content during NEXT flip */}
+                          {cachedMemory && flipDirection === 'next' && (
                             <motion.div
                               className="absolute top-0"
                               style={{
-                                left: '8px', // Account for container p-2 padding
+                                right: '8px', // Account for container p-2 padding
                                 width: '472px', // (968px - 16px padding - 8px gap) / 2
                                 height: '100%',
                                 transformStyle: 'preserve-3d',
-                                transformOrigin: '472px 50%', // Right edge, center
+                                transformOrigin: '0px 50%', // Left edge, center
                                 willChange: 'transform',
                                 zIndex: 20, // Above base pages
                               }}
-                              variants={leftPageFlipVariants}
+                              variants={rightPageFlipVariants}
                               initial="flat"
-                              animate={isLeftPageFlipped ? 'flipped' : 'flat'}
+                              animate={isRightPageFlipped ? 'flipped' : 'flat'}
                             >
-                              {/* Front of flipping left page - shows cached/old content */}
+                              {/* Front of flipping right page - shows cached/old content */}
                               <div
                                 className={PAGE_FACE_STYLES}
                                 style={{ backfaceVisibility: 'hidden' }}
-                              >
-                                {/* Date card - cached content */}
-                                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
-                                  <div>
-                                    <p className="text-xs font-normal text-skolaroid-blue">
-                                      WHEN
-                                    </p>
-                                    <p className="text-base font-medium text-black">
-                                      {cachedDateInfo.dayOfWeek},{' '}
-                                      {cachedDateInfo.month}{' '}
-                                      {cachedDateInfo.dayNumber}
-                                    </p>
-                                    <p className="text-[8px] text-gray-400">
-                                      {cachedDateInfo.uploadTime.replace(
-                                        /:/g,
-                                        '-'
-                                      )}
-                                    </p>
-                                  </div>
-                                  <div className="flex h-14 w-14 flex-col overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-neutral-50/50 to-gray-400/50">
-                                    <div className="h-3 w-full rounded-t-md bg-skolaroid-blue" />
-                                    <div className="flex flex-1 items-center justify-center">
-                                      <span className="text-2xl font-medium text-black">
-                                        {cachedDateInfo.dayNumber}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Polaroid photo - cached content */}
-                                <div className="flex flex-1 items-center justify-center">
-                                  <div className="w-full">
-                                    {cachedMemory.mediaURL ? (
-                                      <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                        <div className="relative h-80 w-full overflow-hidden">
-                                          <Image
-                                            src={cachedMemory.mediaURL}
-                                            alt={cachedMemory.title}
-                                            fill
-                                            className="object-cover"
-                                          />
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                        <div className="flex h-80 w-full items-center justify-center bg-gray-100">
-                                          <span className="text-xs text-gray-400">
-                                            No image
-                                          </span>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Calendar week strip - cached content */}
-                                <div className="flex items-center justify-center gap-0.5">
-                                  {cachedDateInfo.calendarWeek.map((day) => (
-                                    <div
-                                      key={day.label + day.number}
-                                      className="flex h-20 w-14 flex-col items-center overflow-hidden rounded bg-stone-50"
-                                    >
-                                      <span className="mt-1 text-[10px] text-gray-400">
-                                        {day.label}
-                                      </span>
-                                      <div className="flex flex-1 items-center justify-center">
-                                        {day.active ? (
-                                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-skolaroid-blue">
-                                            <span className="text-sm font-medium text-white">
-                                              {day.number}
-                                            </span>
-                                          </div>
-                                        ) : (
-                                          <span className="text-sm font-medium text-slate-700">
-                                            {day.number}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-
-                                {/* Spine rings on right edge */}
-                                <LeftPageSpineRings />
-                              </div>
-                              {/* Back of flipping left page - shows NEW right content */}
-                              <div
-                                className={PAGE_FACE_STYLES}
-                                style={{
-                                  transform: 'rotateY(180deg)',
-                                  backfaceVisibility: 'hidden',
-                                }}
                               >
                                 {/* Author header */}
                                 <div className="flex items-start gap-3">
@@ -668,361 +851,253 @@ export function MemoryDetailModal({
                                   </button>
                                 </div>
 
-                                {/* Caption card */}
+                                {/* Caption card - cached content */}
                                 <div className="rounded-2xl bg-gradient-to-b from-slate-100 to-gray-100 p-5 shadow-[0px_1px_2px_0.5px_rgba(0,0,0,0.25)] outline outline-[3px] outline-white">
                                   <p className="text-center font-dancing text-2xl leading-relaxed text-slate-800">
-                                    {memory.description ||
+                                    {cachedMemory.description ||
                                       'A memorable moment...'}
                                   </p>
                                 </div>
 
                                 {/* Action bar */}
-                                <ActionBar memory={memory} />
+                                <ActionBar memory={cachedMemory!} />
 
-                                {/* Comments section */}
-                                <div className="flex-1">
-                                  <div className="mb-2 flex items-center gap-2">
-                                    <h3 className="text-base font-medium text-black">
-                                      Comments
-                                    </h3>
-                                    <span className="rounded-lg bg-gray-200 px-2 py-0.5 text-sm font-medium text-black">
-                                      {commentCount}
-                                    </span>
-                                  </div>
-                                  <div className="flex max-h-32 flex-col gap-3 overflow-y-auto pr-1">
-                                    {mockComments.map((comment, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="flex items-start gap-2"
-                                      >
-                                        <Avatar className="h-9 w-9">
-                                          <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
-                                            {comment.authorName.charAt(0)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1">
-                                          <div className="flex items-center justify-between">
-                                            <p className="text-sm font-semibold text-slate-800">
-                                              {comment.authorName}
-                                            </p>
-                                            <span className="text-xs text-gray-400">
-                                              {comment.date}
-                                            </span>
-                                          </div>
-                                          <p className="text-sm text-slate-800">
-                                            {comment.subtitle}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
+                                {/* Comments section — NEXT flip: cached comments, carry snapshotted text */}
+                                <CommentSection
+                                  comments={cachedCommentsRef.current}
+                                  commentCount={cachedCommentCountRef.current}
+                                  currentUserId={user?.id}
+                                  hasMore={false}
+                                  isLoadingMore={false}
+                                  isSubmitting={false}
+                                  onSubmit={() => {}}
+                                  onDelete={() => {}}
+                                  onLoadMore={() => {}}
+                                  commentText={carriedCommentText.current}
+                                  onCommentTextChange={() => {}}
+                                />
 
-                                {/* Spine rings on left edge (back of left page shows right content) */}
+                                {/* Spine rings on left edge */}
                                 <RightPageSpineRings />
                               </div>
-                            </motion.div>
-                          )}
-
-                        {/* ANIMATED RIGHT PAGE OVERLAY - shows cached/old content during NEXT flip */}
-                        {cachedMemory && flipDirection === 'next' && (
-                          <motion.div
-                            className="absolute top-0"
-                            style={{
-                              right: '8px', // Account for container p-2 padding
-                              width: '472px', // (968px - 16px padding - 8px gap) / 2
-                              height: '100%',
-                              transformStyle: 'preserve-3d',
-                              transformOrigin: '0px 50%', // Left edge, center
-                              willChange: 'transform',
-                              zIndex: 20, // Above base pages
-                            }}
-                            variants={rightPageFlipVariants}
-                            initial="flat"
-                            animate={isRightPageFlipped ? 'flipped' : 'flat'}
-                          >
-                            {/* Front of flipping right page - shows cached/old content */}
-                            <div
-                              className={PAGE_FACE_STYLES}
-                              style={{ backfaceVisibility: 'hidden' }}
-                            >
-                              {/* Author header */}
-                              <div className="flex items-start gap-3">
-                                <Avatar className="h-9 w-9">
-                                  <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
-                                    {authorInitial}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                  <p className="text-sm font-semibold text-slate-800">
-                                    {authorName}
-                                  </p>
-                                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                                    <Globe className="h-3 w-3" />
-                                    <span>Public</span>
+                              {/* Back of flipping right page - shows NEW left content */}
+                              <div
+                                className={PAGE_FACE_STYLES}
+                                style={{
+                                  transform: 'rotateY(180deg)',
+                                  backfaceVisibility: 'hidden',
+                                }}
+                              >
+                                {/* Date card */}
+                                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
+                                  <div>
+                                    <p className="text-xs font-normal text-skolaroid-blue">
+                                      WHEN
+                                    </p>
+                                    <p className="text-base font-medium text-black">
+                                      {dateInfo.dayOfWeek}, {dateInfo.month}{' '}
+                                      {dateInfo.dayNumber}
+                                    </p>
+                                    <p className="text-[8px] text-gray-400">
+                                      {dateInfo.uploadTime.replace(/:/g, '-')}
+                                    </p>
+                                  </div>
+                                  <div className="flex h-14 w-14 flex-col overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-neutral-50/50 to-gray-400/50">
+                                    <div className="h-3 w-full rounded-t-md bg-skolaroid-blue" />
+                                    <div className="flex flex-1 items-center justify-center">
+                                      <span className="text-2xl font-medium text-black">
+                                        {dateInfo.dayNumber}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                                <button
-                                  className="text-gray-400 hover:text-slate-600"
-                                  aria-label="More options"
-                                >
-                                  <MoreHorizontal className="h-5 w-5" />
-                                </button>
-                              </div>
 
-                              {/* Caption card - cached content */}
-                              <div className="rounded-2xl bg-gradient-to-b from-slate-100 to-gray-100 p-5 shadow-[0px_1px_2px_0.5px_rgba(0,0,0,0.25)] outline outline-[3px] outline-white">
-                                <p className="text-center font-dancing text-2xl leading-relaxed text-slate-800">
-                                  {cachedMemory.description ||
-                                    'A memorable moment...'}
-                                </p>
-                              </div>
-
-                              {/* Action bar */}
-                              <ActionBar memory={cachedMemory!} />
-
-                              {/* Comments section */}
-                              <div className="flex-1">
-                                <div className="mb-2 flex items-center gap-2">
-                                  <h3 className="text-base font-medium text-black">
-                                    Comments
-                                  </h3>
-                                  <span className="rounded-lg bg-gray-200 px-2 py-0.5 text-sm font-medium text-black">
-                                    {commentCount}
-                                  </span>
-                                </div>
-                                <div className="flex max-h-32 flex-col gap-3 overflow-y-auto pr-1">
-                                  {mockComments.map((comment, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-start gap-2"
-                                    >
-                                      <Avatar className="h-9 w-9">
-                                        <AvatarFallback className="bg-zinc-300 text-sm text-slate-600">
-                                          {comment.authorName.charAt(0)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div className="flex-1">
-                                        <div className="flex items-center justify-between">
-                                          <p className="text-sm font-semibold text-slate-800">
-                                            {comment.authorName}
-                                          </p>
+                                {/* Polaroid photo */}
+                                <div className="flex flex-1 items-center justify-center">
+                                  <div className="w-full">
+                                    {memory.mediaURL ? (
+                                      <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
+                                        <div className="relative h-80 w-full overflow-hidden">
+                                          <Image
+                                            src={memory.mediaURL}
+                                            alt={memory.title}
+                                            fill
+                                            className="object-cover"
+                                          />
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
+                                        <div className="flex h-80 w-full items-center justify-center bg-gray-100">
                                           <span className="text-xs text-gray-400">
-                                            {comment.date}
+                                            No image
                                           </span>
                                         </div>
-                                        <p className="text-sm text-slate-800">
-                                          {comment.subtitle}
-                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Calendar week strip */}
+                                <div className="flex items-center justify-center gap-0.5">
+                                  {dateInfo.calendarWeek.map((day) => (
+                                    <div
+                                      key={day.label + day.number}
+                                      className="flex h-20 w-14 flex-col items-center overflow-hidden rounded bg-stone-50"
+                                    >
+                                      <span className="mt-1 text-[10px] text-gray-400">
+                                        {day.label}
+                                      </span>
+                                      <div className="flex flex-1 items-center justify-center">
+                                        {day.active ? (
+                                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-skolaroid-blue">
+                                            <span className="text-sm font-medium text-white">
+                                              {day.number}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-sm font-medium text-slate-700">
+                                            {day.number}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                   ))}
                                 </div>
-                              </div>
 
-                              {/* Spine rings on left edge */}
-                              <RightPageSpineRings />
-                            </div>
-                            {/* Back of flipping right page - shows NEW left content */}
+                                {/* Spine rings on right edge (back of right page shows left content) */}
+                                <LeftPageSpineRings />
+                              </div>
+                            </motion.div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Covers Layer (visible during open/close animation) */}
+                      {showCovers && (
+                        <>
+                          {/* Left cover */}
+                          <motion.div
+                            className="absolute left-0 top-0 h-full w-1/2 rounded-l-2xl bg-sky-200 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.3)]"
+                            style={{
+                              transformOrigin: 'right center',
+                              transformStyle: 'preserve-3d',
+                            }}
+                            variants={coverLeftVariants}
+                            initial="closed"
+                            animate={animationPhase}
+                          >
                             <div
-                              className={PAGE_FACE_STYLES}
+                              className="relative flex h-full items-center justify-center rounded-l-2xl bg-sky-200"
+                              style={{ backfaceVisibility: 'hidden' }}
+                            >
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="h-24 w-1 rounded-full bg-sky-300" />
+                                <p className="text-xs text-sky-400">Memories</p>
+                              </div>
+                              {/* Spine connector on right edge */}
+                              <div className="pointer-events-none absolute right-0 top-0 flex h-full flex-col items-end justify-around py-4">
+                                {[0, 1, 2].map((i) => (
+                                  <div
+                                    key={i}
+                                    className="relative flex h-4 w-7 items-center"
+                                  >
+                                    <div className="absolute right-0 h-3.5 w-[7px] rounded-r-full bg-sky-400" />
+                                    <div className="absolute right-0.5 h-1.5 w-5 rounded-l bg-sky-300" />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div
+                              className="absolute inset-0 rounded-r-2xl bg-sky-100"
                               style={{
                                 transform: 'rotateY(180deg)',
                                 backfaceVisibility: 'hidden',
                               }}
+                            />
+                          </motion.div>
+
+                          {/* Right cover */}
+                          <motion.div
+                            className="absolute right-0 top-0 h-full w-1/2 rounded-r-2xl bg-sky-200 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.3)]"
+                            style={{
+                              transformOrigin: 'left center',
+                              transformStyle: 'preserve-3d',
+                            }}
+                            variants={coverRightVariants}
+                            initial="closed"
+                            animate={animationPhase}
+                          >
+                            <div
+                              className="relative flex h-full items-center justify-center rounded-r-2xl bg-sky-200"
+                              style={{ backfaceVisibility: 'hidden' }}
                             >
-                              {/* Date card */}
-                              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
-                                <div>
-                                  <p className="text-xs font-normal text-skolaroid-blue">
-                                    WHEN
-                                  </p>
-                                  <p className="text-base font-medium text-black">
-                                    {dateInfo.dayOfWeek}, {dateInfo.month}{' '}
-                                    {dateInfo.dayNumber}
-                                  </p>
-                                  <p className="text-[8px] text-gray-400">
-                                    {dateInfo.uploadTime.replace(/:/g, '-')}
-                                  </p>
-                                </div>
-                                <div className="flex h-14 w-14 flex-col overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-neutral-50/50 to-gray-400/50">
-                                  <div className="h-3 w-full rounded-t-md bg-skolaroid-blue" />
-                                  <div className="flex flex-1 items-center justify-center">
-                                    <span className="text-2xl font-medium text-black">
-                                      {dateInfo.dayNumber}
-                                    </span>
-                                  </div>
-                                </div>
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="h-24 w-1 rounded-full bg-sky-300" />
+                                <p className="text-xs text-sky-400">Book</p>
                               </div>
-
-                              {/* Polaroid photo */}
-                              <div className="flex flex-1 items-center justify-center">
-                                <div className="w-full">
-                                  {memory.mediaURL ? (
-                                    <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                      <div className="relative h-80 w-full overflow-hidden">
-                                        <Image
-                                          src={memory.mediaURL}
-                                          alt={memory.title}
-                                          fill
-                                          className="object-cover"
-                                        />
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-white p-2 pb-8 shadow-[0px_2px_8px_2px_rgba(0,0,0,0.15)]">
-                                      <div className="flex h-80 w-full items-center justify-center bg-gray-100">
-                                        <span className="text-xs text-gray-400">
-                                          No image
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Calendar week strip */}
-                              <div className="flex items-center justify-center gap-0.5">
-                                {dateInfo.calendarWeek.map((day) => (
+                              {/* Spine connector on left edge */}
+                              <div className="pointer-events-none absolute left-0 top-0 flex h-full flex-col items-start justify-around py-4">
+                                {[0, 1, 2].map((i) => (
                                   <div
-                                    key={day.label + day.number}
-                                    className="flex h-20 w-14 flex-col items-center overflow-hidden rounded bg-stone-50"
+                                    key={i}
+                                    className="relative flex h-4 w-7 items-center"
                                   >
-                                    <span className="mt-1 text-[10px] text-gray-400">
-                                      {day.label}
-                                    </span>
-                                    <div className="flex flex-1 items-center justify-center">
-                                      {day.active ? (
-                                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-skolaroid-blue">
-                                          <span className="text-sm font-medium text-white">
-                                            {day.number}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-sm font-medium text-slate-700">
-                                          {day.number}
-                                        </span>
-                                      )}
-                                    </div>
+                                    <div className="absolute left-0 h-3.5 w-[7px] rounded-l-full bg-sky-400" />
+                                    <div className="absolute left-0.5 h-1.5 w-5 rounded-r bg-sky-300" />
                                   </div>
                                 ))}
                               </div>
-
-                              {/* Spine rings on right edge (back of right page shows left content) */}
-                              <LeftPageSpineRings />
                             </div>
+                            <div
+                              className="absolute inset-0 rounded-l-2xl bg-sky-100"
+                              style={{
+                                transform: 'rotateY(180deg)',
+                                backfaceVisibility: 'hidden',
+                              }}
+                            />
                           </motion.div>
-                        )}
-                      </div>
+                        </>
+                      )}
                     </div>
 
-                    {/* Covers Layer (visible during open/close animation) */}
-                    {showCovers && (
-                      <>
-                        {/* Left cover */}
-                        <motion.div
-                          className="absolute left-0 top-0 h-full w-1/2 rounded-l-2xl bg-sky-200 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.3)]"
-                          style={{
-                            transformOrigin: 'right center',
-                            transformStyle: 'preserve-3d',
-                          }}
-                          variants={coverLeftVariants}
-                          initial="closed"
-                          animate={animationPhase}
-                        >
-                          <div
-                            className="relative flex h-full items-center justify-center rounded-l-2xl bg-sky-200"
-                            style={{ backfaceVisibility: 'hidden' }}
-                          >
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="h-24 w-1 rounded-full bg-sky-300" />
-                              <p className="text-xs text-sky-400">Memories</p>
-                            </div>
-                            {/* Spine connector on right edge */}
-                            <div className="pointer-events-none absolute right-0 top-0 flex h-full flex-col items-end justify-around py-4">
-                              {[0, 1, 2].map((i) => (
-                                <div
-                                  key={i}
-                                  className="relative flex h-4 w-7 items-center"
-                                >
-                                  <div className="absolute right-0 h-3.5 w-[7px] rounded-r-full bg-sky-400" />
-                                  <div className="absolute right-0.5 h-1.5 w-5 rounded-l bg-sky-300" />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div
-                            className="absolute inset-0 rounded-r-2xl bg-sky-100"
-                            style={{
-                              transform: 'rotateY(180deg)',
-                              backfaceVisibility: 'hidden',
-                            }}
-                          />
-                        </motion.div>
-
-                        {/* Right cover */}
-                        <motion.div
-                          className="absolute right-0 top-0 h-full w-1/2 rounded-r-2xl bg-sky-200 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.3)]"
-                          style={{
-                            transformOrigin: 'left center',
-                            transformStyle: 'preserve-3d',
-                          }}
-                          variants={coverRightVariants}
-                          initial="closed"
-                          animate={animationPhase}
-                        >
-                          <div
-                            className="relative flex h-full items-center justify-center rounded-r-2xl bg-sky-200"
-                            style={{ backfaceVisibility: 'hidden' }}
-                          >
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="h-24 w-1 rounded-full bg-sky-300" />
-                              <p className="text-xs text-sky-400">Book</p>
-                            </div>
-                            {/* Spine connector on left edge */}
-                            <div className="pointer-events-none absolute left-0 top-0 flex h-full flex-col items-start justify-around py-4">
-                              {[0, 1, 2].map((i) => (
-                                <div
-                                  key={i}
-                                  className="relative flex h-4 w-7 items-center"
-                                >
-                                  <div className="absolute left-0 h-3.5 w-[7px] rounded-l-full bg-sky-400" />
-                                  <div className="absolute left-0.5 h-1.5 w-5 rounded-r bg-sky-300" />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div
-                            className="absolute inset-0 rounded-l-2xl bg-sky-100"
-                            style={{
-                              transform: 'rotateY(180deg)',
-                              backfaceVisibility: 'hidden',
-                            }}
-                          />
-                        </motion.div>
-                      </>
-                    )}
+                    {/* Right chevron */}
+                    <motion.button
+                      onClick={handleNext}
+                      disabled={!hasNext || isFlipping}
+                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg backdrop-blur-sm transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
+                      variants={chevronVariants}
+                      initial="idle"
+                      whileHover={hasNext ? 'hover' : 'disabled'}
+                      whileTap={hasNext ? 'tap' : 'disabled'}
+                      aria-label="Next memory"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </motion.button>
                   </div>
-
-                  {/* Right chevron */}
-                  <motion.button
-                    onClick={handleNext}
-                    disabled={!hasNext || isFlipping}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg backdrop-blur-sm transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
-                    variants={chevronVariants}
-                    initial="idle"
-                    whileHover={hasNext ? 'hover' : 'disabled'}
-                    whileTap={hasNext ? 'tap' : 'disabled'}
-                    aria-label="Next memory"
-                  >
-                    <ChevronRight className="h-6 w-6" />
-                  </motion.button>
                 </div>
-              </div>
-            </DialogPrimitive.Content>
-          </DialogPrimitive.Portal>
-        )}
-      </AnimatePresence>
-    </Dialog>
+              </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
+          )}
+        </AnimatePresence>
+      </Dialog>
+
+      <DeleteMemoryModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        memoryTitle={memory?.title ?? ''}
+        isPending={deleteMemory.isPending}
+        onConfirmDelete={() => {
+          if (!memory) return;
+          deleteMemory.mutate(memory.id, {
+            onSuccess: () => {
+              setDeleteModalOpen(false);
+              onOpenChange(false);
+              onMemoryDeleted?.();
+            },
+          });
+        }}
+      />
+    </>
   );
 }

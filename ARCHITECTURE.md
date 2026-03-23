@@ -197,32 +197,48 @@ export function useData() {
 
 **When**: Any component that fetches or mutates data.
 
-### 3. Create Service Layer Functions
+### 3. Service Layer: Extract When Complex
 
-Don't put business logic in API routes. Extract to a service:
+Extract business logic to `src/services/` when it involves **non-trivial logic** — multi-step queries, cursor pagination, aggregations, or anything that would benefit from reuse or isolated testing. Simple CRUD operations (a single `prisma.create`, `prisma.update`, or `prisma.delete`) can stay inlined in the API route.
 
 ```typescript
-// ✅ Good
-// src/services/user.ts
-export async function createUser(data: CreateUserInput) {
-  // Validate business rules
-  const existingUser = await prisma.user.findUnique({
-    where: { email: data.email },
+// ✅ Simple CRUD — inline in route (no service needed)
+// src/app/api/prisma/memory/comment/create/route.ts
+const comment = await prisma.memoryComment.create({
+  data: { memoryId, authorId, content },
+  include: {
+    author: { select: { id: true, firstName: true, lastName: true } },
+  },
+});
+return Response.json({ success: true, data: comment });
+
+// ✅ Complex logic — extract to service
+// src/services/get-comments-service.ts
+export async function getCommentsService(
+  memoryId: string,
+  limit: number,
+  cursor?: string
+) {
+  const rows = await prisma.memoryComment.findMany({
+    where: { memoryId, deletedAt: null },
+    take: limit + 1, // fetch one extra to determine hasMore
+    ...(cursor && { skip: 1, cursor: { id: cursor } }),
+    orderBy: { createdAt: 'desc' },
+    include: {
+      author: { select: { id: true, firstName: true, lastName: true } },
+    },
   });
-  if (existingUser) throw new Error('User already exists');
-
-  return prisma.user.create({ data });
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, -1) : rows;
+  return {
+    items,
+    nextCursor: hasMore ? items[items.length - 1].id : null,
+    hasMore,
+  };
 }
-
-// src/app/api/users/create/route.ts
-const result = createUserSchema.safeParse(body);
-if (!result.success)
-  return Response.json({ error: result.error }, { status: 400 });
-const user = await createUser(result.data);
-return Response.json(user);
 ```
 
-**When**: Any logic that might be reused or tested separately.
+**Rule of thumb**: if the Prisma call fits in ~3 lines and has no branching logic, keep it in the route. If it involves pagination, multi-table coordination, or business rules, extract it.
 
 ### 4. Use Type Inference from Zod
 
@@ -256,10 +272,10 @@ export type User = z.infer<typeof userSchema>;
 - Every API route should validate input
 - Invalid data should never reach your database
 
-❌ **Don't put business logic in API routes**
+❌ **Don't put complex business logic in API routes**
 
-- Extract to service layer
-- Makes testing and reuse easier
+- Extract to service layer when logic is non-trivial (pagination, multi-step queries)
+- Simple single-call CRUD can stay inlined in the route
 
 ❌ **Don't create useState for loading/error states**
 

@@ -21,10 +21,20 @@ model User {
   programBatchId String         @db.Uuid
   memories       Memory[]
   votes          MemoryVote[]
-  createdGroups    PrivateGroup[] @relation("GroupCreator")
-  programBatch     ProgramBatch   @relation(fields: [programBatchId], references: [id])
-  groups           PrivateGroup[] @relation("GroupMembers")
-  sentInvitations  Invitation[]   @relation("SentInvitations")
+  comments       MemoryComment[]
+  groups         PrivateGroup[] @relation("GroupMembers")
+  createdGroups  PrivateGroup[] @relation("GroupCreator")
+  
+  // Status & Role
+  status         Status   @default(STUDENT)
+  role           UserRole @default(USER)
+  
+  // Soft delete
+  deletedAt      DateTime?
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([email])
   @@index([studentId])
@@ -77,6 +87,18 @@ model Memory {
   description    String?
   mediaURL       String?          @db.VarChar(2048)
   uploadDate     DateTime         @default(now())
+  visibility     MemoryVisibility @default(PUBLIC)
+  
+  // Relations
+  tags           Tag[]            @relation("MemoryTags")
+  votes          MemoryVote[]
+  comments       MemoryComment[]
+
+  // Private group (required when visibility = GROUP_ONLY)
+  privateGroupId String?          @db.Uuid
+  privateGroup   PrivateGroup?    @relation(fields: [privateGroupId], references: [id], onDelete: Restrict)
+  
+  // Creator (nullable to preserve memories if user deleted)
   creatorId      String?          @db.Uuid
   locationId     String           @db.Uuid
   createdAt      DateTime         @default(now())
@@ -103,6 +125,31 @@ model Memory {
   @@index([createdAt])
   @@index([privateGroupId])
 }
+
+// ============================================================================
+// MEMORY COMMENT SYSTEM
+// ============================================================================
+
+model MemoryComment {
+  id        String    @id @default(uuid()) @db.Uuid
+  content   String    @db.Text
+  memoryId  String    @db.Uuid
+  memory    Memory    @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  authorId  String    @db.Uuid
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([memoryId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+// MEMORY VOTING SYSTEM
+// ============================================================================
 
 model MemoryVote {
   id        String   @id @default(uuid()) @db.Uuid
