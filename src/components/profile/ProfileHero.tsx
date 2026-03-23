@@ -4,19 +4,22 @@ import type { User } from '@supabase/supabase-js';
 import Image from 'next/image';
 import { User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { CurrentUserProfile } from '@/lib/hooks/useCurrentUser';
 
 interface ProfileHeroProps {
   user: User | null;
+  dbUser?: CurrentUserProfile | null;
 }
 
-export function ProfileHero({ user }: ProfileHeroProps) {
+export function ProfileHero({ user, dbUser }: ProfileHeroProps) {
   const avatarUrl =
     user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
-  const displayName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    user?.email ||
-    'Unknown User';
+  const displayName = dbUser
+    ? `${dbUser.firstName} ${dbUser.lastName}`
+    : user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.email ||
+      'Unknown User';
   const email = user?.email;
 
   return (
@@ -39,7 +42,12 @@ export function ProfileHero({ user }: ProfileHeroProps) {
       <div className="flex flex-1 flex-col gap-1 sm:gap-2">
         <h1 className="text-2xl font-bold text-foreground">{displayName}</h1>
         {email && <p className="text-sm text-muted-foreground">{email}</p>}
-        <p className="text-xs text-muted-foreground">Student · Batch 2024</p>
+        {dbUser && (
+          <p className="text-xs text-muted-foreground">
+            {dbUser.status === 'ALUMNI' ? 'Alumni' : 'Student'} · Batch{' '}
+            {dbUser.programBatch.batch.year}
+          </p>
+        )}
       </div>
       <div className="shrink-0">
         <Button
