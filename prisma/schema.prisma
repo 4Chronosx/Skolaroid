@@ -18,23 +18,14 @@ model User {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   deletedAt      DateTime?
-  programBatchId String         @db.Uuid
-  memories       Memory[]
-  votes          MemoryVote[]
-  comments       MemoryComment[]
-  groups         PrivateGroup[] @relation("GroupMembers")
-  createdGroups  PrivateGroup[] @relation("GroupCreator")
-  
-  // Status & Role
-  status         Status   @default(STUDENT)
-  role           UserRole @default(USER)
-  
-  // Soft delete
-  deletedAt      DateTime?
-  
-  // Timestamps
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  programBatchId    String         @db.Uuid
+  memories          Memory[]
+  votes             MemoryVote[]
+  comments          MemoryComment[]
+  groups            PrivateGroup[] @relation("GroupMembers")
+  createdGroups     PrivateGroup[] @relation("GroupCreator")
+  programBatch      ProgramBatch   @relation(fields: [programBatchId], references: [id])
+  sentInvitations   Invitation[]   @relation("SentInvitations")
 
   @@index([email])
   @@index([studentId])
@@ -105,15 +96,10 @@ model Memory {
   updatedAt      DateTime         @updatedAt
   deletedAt      DateTime?
   isArchived     Boolean          @default(false)
-  visibility     MemoryVisibility @default(PUBLIC)
   programBatchId String           @db.Uuid
-  privateGroupId String?          @db.Uuid
   creator        User?            @relation(fields: [creatorId], references: [id])
   location       Location         @relation(fields: [locationId], references: [id])
-  privateGroup   PrivateGroup?    @relation(fields: [privateGroupId], references: [id], onDelete: Restrict)
   programBatch   ProgramBatch     @relation(fields: [programBatchId], references: [id])
-  votes          MemoryVote[]
-  tags           Tag[]            @relation("MemoryTags")
 
   @@index([creatorId])
   @@index([programBatchId])
