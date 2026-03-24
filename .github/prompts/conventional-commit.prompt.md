@@ -1,7 +1,7 @@
 ---
 name: conventional-commit
 description: 'Prompt and workflow for generating conventional commit messages using a structured XML format. Guides users to create standardized, descriptive commit messages in line with the Conventional Commits specification, including instructions, examples, and validation.'
-model: GPT-4o (copilot)
+model: Raptor mini (Preview) (copilot)
 ---
 
 ### Instructions
@@ -56,6 +56,12 @@ git commit -m "type(scope): description"
 
 		Body: Removed duplicate fields. Added missing relations.
 		(Each line under 100 characters)
+	</example-with-body>
+	<example-with-body>
+		fix(email): lazy-load Resend client to avoid build-time API key errors
+
+		Move Resend client initialization to a lazy function to
+		prevent build failures when RESEND_API_KEY is unavailable.
 	</example-with-body>
 </examples>
 ```
